@@ -168,3 +168,9 @@ On the client node
 cd ./Electrode/
 ./bench/client -c config.txt -m vr -n 10000
 ```
+
+## Learning resources
+- https://www.youtube.com/watch?v=0p987hCplbk
+- https://sematext.com/blog/ebpf-and-xdp-for-processing-packets-at-bare-metal-speed/
+- https://www.brendangregg.com/blog/2018-10-08/dtrace-for-linux-2018.html
+- https://dl.acm.org/doi/pdf/10.1145/3371038
