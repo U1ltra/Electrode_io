@@ -95,3 +95,76 @@ BibTex:
         pages={1391--1407},
         year={2023}
       }
+
+## Reproducing the results
+
+Configure a cluster of 4-nodes x86 machines. For easy setup, use profiles
+- c6525-25g (best option if available)
+- m400
+- m510_reduced
+
+In all shells
+```bash
+wget https://raw.githubusercontent.com/pimlie/ubuntu-mainline-kernel.sh/master/ubuntu-mainline-kernel.sh
+sudo bash ubuntu-mainline-kernel.sh -i 5.8.0
+sudo reboot
+
+sudo apt update
+sudo apt install llvm clang gpg curl tar xz-utils make gcc flex bison libssl-dev libelf-dev protobuf-compiler pkg-config libunwind-dev libssl-dev libprotobuf-dev libevent-dev libgtest-dev
+
+git clone https://github.com/Electrode-NSDI23/Electrode
+cd Electrode/
+
+bash kernel-src-download.sh
+bash kernel-src-prepare.sh
+
+cd ./xdp-handler/
+make clean
+make
+
+cd ..
+make clean
+make PARANOID=0
+
+ifconfig
+```
+
+```bash
+sudo ifconfig <interface-name> mtu 3000 up
+sudo ethtool -C <interface-name> adaptive-rx off adaptive-tx off rx-frames 1 rx-usecs 0  tx-frames 1 tx-usecs 0
+sudo ethtool -C <interface-name> adaptive-rx off adaptive-tx off rx-frames 1 rx-usecs 0  tx-frames 1 tx-usecs 0
+sudo ethtool -L <interface-name> combined 1
+sudo service irqbalance stop
+(let CPU=0; cd /sys/class/net/<interface-name>/device/msi_irqs/;
+for IRQ in *; do
+      echo $CPU | sudo tee /proc/irq/$IRQ/smp_affinity_list
+done)
+```
+
+use `ifconfig` to check the IP address of each paxos nodes and make sure `./config.txt` has correct IP addresses (likely no modification is needed)
+
+write the MACADDR of the cluster in line 281 of xdp-handler/fast_user.c. (nothing to change if using a 3-nodes paxos)
+
+```bash
+cd xdp-handler
+make clean && make EXTRA_CFLAGS="-DTC_BROADCAST -DFAST_QUORUM_PRUNE -DFAST_REPLY"
+
+cd ..
+make clean && make CXXFLAGS="-DTC_BROADCAST -DFAST_QUORUM_PRUNE -DFAST_REPLY"
+
+cd xdp-handler
+sudo ./fast <interface-name>
+```
+
+In new terminals:
+
+```bash
+cd ./Electrode/
+sudo taskset -c 1 ./bench/replica -c config.txt -m vr -i {idx} # idx=0/1/2 when f=1
+```
+
+On the client node
+```bash
+cd ./Electrode/
+./bench/client -c config.txt -m vr -n 10000
+```

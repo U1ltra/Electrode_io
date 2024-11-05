@@ -1,0 +1,84 @@
+<rspec xmlns="http://www.geni.net/resources/rspec/3" xmlns:emulab="http://www.protogeni.net/resources/rspec/ext/emulab/1" xmlns:tour="http://www.protogeni.net/resources/rspec/ext/apt-tour/1" xmlns:jacks="http://www.protogeni.net/resources/rspec/ext/jacks/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.geni.net/resources/rspec/3    http://www.geni.net/resources/rspec/3/request.xsd" type="request">
+<node xmlns="http://www.geni.net/resources/rspec/3" client_id="node-0">
+        <icon xmlns="http://www.protogeni.net/resources/rspec/ext/jacks/1" url="https://www.emulab.net/protogeni/jacks-stable/images/server.svg"/>
+        <sliver_type xmlns="http://www.geni.net/resources/rspec/3" name="raw-pc">
+            <disk_image xmlns="http://www.geni.net/resources/rspec/3" name="urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU20-64-STD"/>
+        </sliver_type>
+        <services xmlns="http://www.geni.net/resources/rspec/3">
+            
+        <execute xmlns="http://www.geni.net/resources/rspec/3" command="sudo bash ubuntu-mainline-kernel.sh -i 5.8.0" shell="/bin/sh"/></services>
+        <interface xmlns="http://www.geni.net/resources/rspec/3" client_id="interface-2"/>
+        <hardware_type xmlns="http://www.geni.net/resources/rspec/3" name="m510"/>
+    </node><node xmlns="http://www.geni.net/resources/rspec/3" client_id="node-1">
+        <icon xmlns="http://www.protogeni.net/resources/rspec/ext/jacks/1" url="https://www.emulab.net/protogeni/jacks-stable/images/server.svg"/>
+        <sliver_type xmlns="http://www.geni.net/resources/rspec/3" name="raw-pc">
+            <disk_image xmlns="http://www.geni.net/resources/rspec/3" name="urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU20-64-STD"/>
+        </sliver_type>
+        <services xmlns="http://www.geni.net/resources/rspec/3">
+            
+        <execute xmlns="http://www.geni.net/resources/rspec/3" command="sudo bash ubuntu-mainline-kernel.sh -i 5.8.0" shell="/bin/sh"/></services>
+        <interface xmlns="http://www.geni.net/resources/rspec/3" client_id="interface-3"/>
+        <hardware_type xmlns="http://www.geni.net/resources/rspec/3" name="m510"/>
+    </node><node xmlns="http://www.geni.net/resources/rspec/3" client_id="node-2">
+        <icon xmlns="http://www.protogeni.net/resources/rspec/ext/jacks/1" url="https://www.emulab.net/protogeni/jacks-stable/images/server.svg"/>
+        <sliver_type xmlns="http://www.geni.net/resources/rspec/3" name="raw-pc">
+            <disk_image xmlns="http://www.geni.net/resources/rspec/3" name="urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU20-64-STD"/>
+        </sliver_type>
+        <services xmlns="http://www.geni.net/resources/rspec/3">
+            
+        <execute xmlns="http://www.geni.net/resources/rspec/3" command="sudo bash ubuntu-mainline-kernel.sh -i 5.8.0" shell="/bin/sh"/></services>
+        <interface xmlns="http://www.geni.net/resources/rspec/3" client_id="interface-0"/>
+        <hardware_type xmlns="http://www.geni.net/resources/rspec/3" name="m510"/>
+    </node><node xmlns="http://www.geni.net/resources/rspec/3" client_id="client">
+        <icon xmlns="http://www.protogeni.net/resources/rspec/ext/jacks/1" url="https://www.emulab.net/protogeni/jacks-stable/images/server.svg"/>
+        <sliver_type xmlns="http://www.geni.net/resources/rspec/3" name="raw-pc">
+            <disk_image xmlns="http://www.geni.net/resources/rspec/3" name="urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU20-64-STD"/>
+        </sliver_type>
+        <services xmlns="http://www.geni.net/resources/rspec/3">
+            
+        <execute xmlns="http://www.geni.net/resources/rspec/3" command="sudo bash ubuntu-mainline-kernel.sh -i 5.8.0" shell="/bin/sh"/></services>
+        <interface xmlns="http://www.geni.net/resources/rspec/3" client_id="interface-1"/>
+        <hardware_type xmlns="http://www.geni.net/resources/rspec/3" name="m510"/>
+    </node><link xmlns="http://www.geni.net/resources/rspec/3" client_id="link-0">
+        <interface_ref xmlns="http://www.geni.net/resources/rspec/3" client_id="interface-0"/>
+        <interface_ref xmlns="http://www.geni.net/resources/rspec/3" client_id="interface-1"/>
+        <interface_ref xmlns="http://www.geni.net/resources/rspec/3" client_id="interface-2"/>
+        <interface_ref xmlns="http://www.geni.net/resources/rspec/3" client_id="interface-3"/>
+        <site xmlns="http://www.protogeni.net/resources/rspec/ext/jacks/1" id="undefined"/>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    <property xmlns="http://www.geni.net/resources/rspec/3" source_id="interface-0" dest_id="interface-1" capacity="20000000"/><property xmlns="http://www.geni.net/resources/rspec/3" source_id="interface-0" dest_id="interface-2" capacity="20000000"/><property xmlns="http://www.geni.net/resources/rspec/3" source_id="interface-0" dest_id="interface-3" capacity="20000000"/><property xmlns="http://www.geni.net/resources/rspec/3" source_id="interface-1" dest_id="interface-0" capacity="20000000"/><property xmlns="http://www.geni.net/resources/rspec/3" source_id="interface-1" dest_id="interface-2" capacity="20000000"/><property xmlns="http://www.geni.net/resources/rspec/3" source_id="interface-1" dest_id="interface-3" capacity="20000000"/><property xmlns="http://www.geni.net/resources/rspec/3" source_id="interface-2" dest_id="interface-0" capacity="20000000"/><property xmlns="http://www.geni.net/resources/rspec/3" source_id="interface-2" dest_id="interface-1" capacity="20000000"/><property xmlns="http://www.geni.net/resources/rspec/3" source_id="interface-2" dest_id="interface-3" capacity="20000000"/><property xmlns="http://www.geni.net/resources/rspec/3" source_id="interface-3" dest_id="interface-0" capacity="20000000"/><property xmlns="http://www.geni.net/resources/rspec/3" source_id="interface-3" dest_id="interface-1" capacity="20000000"/><property xmlns="http://www.geni.net/resources/rspec/3" source_id="interface-3" dest_id="interface-2" capacity="20000000"/></link><rspec_tour xmlns="http://www.protogeni.net/resources/rspec/ext/apt-tour/1">
+        <description xmlns="" type="markdown">Paxos: 1-client &amp; 3-replica.
+            Config: 25Gbps Link. UBUNTU 20.04. Linux 5.8.0
+            Server model: m510</description>
+    </rspec_tour></rspec>
