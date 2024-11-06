@@ -143,7 +143,9 @@ done)
 
 use `ifconfig` to check the IP address of each paxos nodes and make sure `./config.txt` has correct IP addresses (likely no modification is needed)
 
-write the MACADDR of the cluster in line 281 of xdp-handler/fast_user.c. (nothing to change if using a 3-nodes paxos)
+write the MACADDR of the cluster in ```line 281``` of ```xdp-handler/fast_user.c```. 
+
+Also you need to modify the ```line 17``` of `xdp-handler/fast_common.h`, the `CLUSTER_SIZE` should equals to $2f + 1$. (nothing to change if using a 3-nodes paxos)
 
 ```bash
 cd xdp-handler
