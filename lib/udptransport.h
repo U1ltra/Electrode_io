@@ -45,6 +45,29 @@
 #include <random>
 #include <netinet/in.h>
 
+#include <sys/socket.h>
+#include <liburing.h>
+
+
+
+struct sendmsg_ctx {
+    struct msghdr msg;
+    struct iovec iov;
+}
+
+struct iouring_ctx {
+    struct io_uring ring; // io_uring object
+    struct io_uring_buf_ring *buf_ring; // buffer ring
+    unsigned char *buffer_base; // base address of the buffer vector within the io_uring
+    struct msghdr msg;
+    int buf_shift; // buffer shift, specified the size of the buffer for each io_uring_buf object
+    int af; // address family, AF_INET
+    bool verbose;
+    struct sendmsg_ctx *send;
+    size_t send_size;
+    size_t buf_ring_size; // size of the entire buffer ring (io_uring_buf object + buffer)*bufNum
+}
+
 class UDPTransportAddress : public TransportAddress
 {
 public:
@@ -115,6 +138,10 @@ private:
     };
     std::map<UDPTransportAddress, UDPTransportFragInfo> fragInfo;
 
+    // io_uring
+    struct iouring_ctx ring_ctx;
+    
+
     bool SendMessageInternal(TransportReceiver *src,
                              const UDPTransportAddress &dst,
                              const Message &m, bool multicast = false,
@@ -139,6 +166,14 @@ private:
     static void FatalCallback(int err);
     static void SignalCallback(evutil_socket_t fd,
                                short what, void *arg);
+
+    void OnCompletion(struct iouring_ctx *ring_ctx, struct io_uring_cqe **cqe);
+    static void RingCallback(evutil_socket_t fd, short what, void *arg);
+    static int setup_iouring(struct iouring_ctx *ring_ctx, int af, bool verbose, int buf_shift);
+    static int setup_buffer_pool(struct iouring_ctx *ring_ctx);
+    static int add_recv(struct iouring_ctx *ring_ctx, int fd);
+    static int process_cqe_send(struct iouring_ctx *ring_ctx, struct io_uring_cqe *cqe);
+    static int process_cqe_recv(struct iouring_ctx *ring_ctx, struct io_uring_cqe *cqe, int fdidx);
 };
 
 #endif  // _LIB_UDPTRANSPORT_H_

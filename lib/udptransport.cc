@@ -58,7 +58,23 @@ const uint64_t FRAG_MAGIC = 0x20101010;
 
 #define FAST_PAXOS_DATA_LEN 12
 
+#define QD 128
+#define BUF_SHIFT 12 // 4KB
+#define CQES (QD * 16)
+#define BUFFERS CQES
+#define CONTROLLEN 0
+
 using std::pair;
+
+static size_t buffer_size(struct ctx *ctx)
+{
+	return 1U << ctx->buf_shift;
+}
+
+static unsigned char *get_buffer(struct ctx *ctx, int idx)
+{
+	return ctx->buffer_base + (idx << ctx->buf_shift);
+}
 
 UDPTransportAddress::UDPTransportAddress(const sockaddr_in &addr)
     : addr(addr)
@@ -224,6 +240,11 @@ UDPTransport::UDPTransport(double dropRate, double reorderRate,
     for (event *x : signalEvents) {
         event_add(x, NULL);
     }
+
+    if (setup_iouring(&ring_ctx, AF_INET, false, BUF_SHIFT)) {
+        PPanic("Failed to setup io_uring");
+    }
+
 }
 
 UDPTransport::~UDPTransport()
@@ -233,6 +254,10 @@ UDPTransport::~UDPTransport()
     // for (auto kv : timers) {
     //     delete kv.second;
     // }
+
+    // free io_uring
+    io_uring_unregister_eventfd(&ring);
+    io_uring_queue_exit(&ring);
 
 }
 
@@ -361,10 +386,41 @@ UDPTransport::Register(TransportReceiver *receiver,
     }
 
     // Set up a libevent callback
-    event *ev = event_new(libeventBase, fd, EV_READ | EV_PERSIST,
-                          SocketCallback, (void *)this);
-    event_add(ev, NULL);
-    listenerEvents.push_back(ev);
+    // event *ev = event_new(libeventBase, fd, EV_READ | EV_PERSIST,
+    //                       SocketCallback, (void *)this);
+    // event_add(ev, NULL);
+    // listenerEvents.push_back(ev);
+
+    // Set up a libevent callback for io_uring
+    // create a eventfd
+    int event_fd = eventfd(0, EFD_NONBLOCK);
+    if (event_fd < 0) {
+        PPanic("Failed to create eventfd");
+    }
+    // register the eventfd to io_uring
+    if (io_uring_register_eventfd(&ring_ctx.ring, event_fd) < 0) {
+        PPanic("Failed to register eventfd");
+    }
+    // set up a libevent callback for the eventfd
+    event *ev_eventfd = event_new(libeventBase, event_fd, EV_READ | EV_PERSIST,
+                                  RingCallback, &ring_ctx);
+    event_add(ev_eventfd, NULL);
+    listenerEvents.push_back(ev_eventfd);
+
+    int ret;
+    ret = io_uring_register_files(&ring_ctx.ring, &fd, 1);
+    if (ret < 0) {
+        PPanic("Failed to register files");
+    }
+
+    ret = add_recv(&ring_ctx, fd);
+    if (ret < 0) {
+        PPanic("Failed to add recv");
+    }
+
+    // submit the prepared io_uring recv multishot request
+    // rely on the eventfd to trigger the callback
+    io_uring_submit(&ring_ctx.ring);
 
     // Tell the receiver its address
     socklen_t sinsize = sizeof(sin);
@@ -783,4 +839,156 @@ UDPTransport::SignalCallback(evutil_socket_t fd, short what, void *arg)
     Notice("Terminating on SIGTERM/SIGINT");
     UDPTransport *transport = (UDPTransport *)arg;
     event_base_loopbreak(transport->libeventBase);
+}
+
+void
+UDPTransport::OnCompletion(struct iouring_ctx *ring_ctx, struct io_uring_cqe **cqe_ptrs, int count) {
+    //TODO
+    for (int i = 0; i < count; i++) {
+        if (cqe_ptrs[i]->user_data < BUFFERS) 
+            if (process_cqe_send(ring_ctx, cqe_ptrs[i])) {
+                PPanic("Failed to process send cqe");
+            }
+        else:
+            if (process_cqe_recv(ring_ctx, cqe_ptrs[i], 0)) { // fdidx = 0, only one registered fd in current version.
+                PPanic("Failed to process recv cqe");
+            }
+    }
+}
+
+void
+UDPTransport::RingCallback(evutil_socket_t fd, short what, void *arg)
+{
+    struct iouring_ctx *ring_ctx = (struct iouring_ctx *)arg;
+    struct io_uring_cqe *cqes[CQES];
+    int ret;
+    unsigned int count;
+
+    count = io_uring_peek_batch_cqe(ring_ctx->ring, &cqes[0], CQES);
+    if (count == 0) {
+        return;
+    }
+    OnCompletion(ring_ctx, cqes, count);
+}
+
+int
+UDPTransport::setup_iouring(struct iouring_ctx *ring_ctx, int af, bool verbose, int buf_shift)
+{
+    memset(ring_ctx, 0, sizeof(*ring_ctx));
+    ring_ctx->verbose = verbose;
+    ring_ctx->af = af;
+    ring_ctx->buf_shift = buf_shift;
+    ring_ctx->send_size = BUFFERS;
+    ring_ctx->send = (struct sendmsg_ctx *)malloc(sizeof(struct sendmsg_ctx) * ring_ctx->send_size);
+
+    struct io_uring_params params;
+    int ret;
+    
+    memset(&params, 0, sizeof(params));
+    params.cq_entries = QD * 8; // make the completion queue larger than the request queue
+    params.flags = IORING_SETUP_SUBMIT_ALL | IORING_SETUP_COOP_TASKRUN | IOURING_SETUP_CQSIZE; // IOURING_SETUP_CQSIZE in /liburing/src/include/liburing/io_uring.h
+    
+    ret = io_uring_queue_init_params(QD, &ring_ctx->ring, &params);
+    if (ret < 0) {
+        PPanic("Failed to initialize io_uring\nNB: This requires a kernel version >= 6.0\n");
+        return ret;
+    }
+
+    // TODO
+    ret = setup_buffer_pool(ring_ctx);
+    if (ret < 0) {
+        PPanic("Failed to setup buffer pool");
+        io_uring_queue_exit(&ring_ctx->ring);
+        return ret;
+    }
+    
+    memset(&ring_ctx->msg, 0, sizeof(struct msghdr));
+    ring_ctx->msg.msg_namelen = sizeof(struct sockaddr_storage);
+    ring_ctx->msg.msg_controllen = CONTROLLEN;
+
+    return ret;
+}
+
+int 
+UDPTransport::setup_buffer_pool(struct iouring_ctx *ring_ctx) {
+    int ret, i;
+    void *mapped;
+    struct io_uring_buf_reg reg = {
+        .ring_addr = 0,
+        .ring_entries = BUFFERS,
+        .bdid = 0
+    };
+
+    ring_ctx->buf_ring_size = (buffer_size(ring_ctx) + sizeof(struct io_uring_buf)) * BUFFERS;
+    mapped = mmap(NULL, ring_ctx->buf_ring_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
+    if (mapped == MAP_FAILED) {
+        PPanic("Failed to mmap buffer ring");
+        return -1;
+    }
+    ring_ctx->buf_ring = (struct io_uring_buf_ring *)mapped;
+    io_uring_buf_ring_init(ring_ctx->buf_ring);
+
+    reg = (struct io_uring_buf_reg){
+        .ring_addr = (unsigned long)ring_ctx->buf_ring,
+        .ring_entries = BUFFERS,
+        .bdid = 0
+    };
+
+    ring_ctx->buffer_base = (unsigned char *)ring_ctx->buf_ring + sizeof(struct io_uring_buf) * BUFFERS;
+
+    ret = io_uring_register_buffers(&ring_ctx->ring, &reg, 0);
+    if (ret) {
+        PPanic("Failed to register buffers");
+        return ret;
+    }
+
+    for (i = 0; i < BUFFERS; i++) {
+        io_uring_buf_ring_add(
+            ring_ctx->buf_ring, 
+            get_buffer(ring_ctx, i), 
+            buffer_size(ring_ctx), 
+            i, 
+            io_uring_buf_ring_mask(BUFFERS), 
+            i
+        );
+    }
+    io_uring_buf_ring_advance(ring_ctx->buf_ring, BUFFERS);
+
+    return 0;
+}
+
+int UDPTransport::add_recv(struct iouring_ctx *ring_ctx, int fd) {
+    struct io_uring_sqe *sqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(&ring_ctx->ring);
+    if (!sqe) {
+        io_uring_submit(&ring_ctx->ring);
+        sqe = io_uring_get_sqe(&ring_ctx->ring);
+    }
+    if (!sqe) {
+        return -1;
+    }
+
+    io_uring_prep_recv_multishot(sqe, fd, ring_ctx->msg, MSG_TRUNC);
+    sqe->flags |= IOSQE_FIXED_FILE;
+    sqe->flags |= IOSQE_BUFFER_SELECT;
+    sqe->buffer_group = 0;
+    io_uring_sqe_set_data64(sqe, BUFFERS+1);
+
+    return 0;
+}
+
+int
+UDPTransport::process_cqe_send(struct iouring_ctx *ring_ctx, struct io_uring_cqe *cqe) {
+    //TODO
+    
+    return 0;
+}
+
+int
+UDPTransport::process_cqe_recv(struct iouring_ctx *ring_ctx, struct io_uring_cqe *cqe, int fdidx) {
+    //TODO
+
+    return 0;
 }
