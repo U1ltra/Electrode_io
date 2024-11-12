@@ -1,0 +1,54 @@
+<rspec xmlns="http://www.geni.net/resources/rspec/3" xmlns:emulab="http://www.protogeni.net/resources/rspec/ext/emulab/1" xmlns:tour="http://www.protogeni.net/resources/rspec/ext/apt-tour/1" xmlns:jacks="http://www.protogeni.net/resources/rspec/ext/jacks/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.geni.net/resources/rspec/3    http://www.geni.net/resources/rspec/3/request.xsd" type="request">
+    <node xmlns:emulab="http://www.protogeni.net/resources/rspec/ext/emulab/1" client_id="node0" exclusive="true" component_manager_id="urn:publicid:IDN+utah.cloudlab.us+authority+cm" component_id="urn:publicid:IDN+utah.cloudlab.us+node+amd103" sliver_id="urn:publicid:IDN+utah.cloudlab.us+sliver+1951107">
+      <sliver_type name="raw-pc">
+        <disk_image name="urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU22-64-STD"/>
+      </sliver_type>
+      <hardware_type name="c6525-25g"/>
+      <interface client_id="node0:eth1" component_id="urn:publicid:IDN+utah.cloudlab.us+interface+amd103:eth2" sliver_id="urn:publicid:IDN+utah.cloudlab.us+sliver+1951111" mac_address="0c42a1dd57ec">
+        <ip address="10.10.1.1" type="ipv4" netmask="255.255.255.0"/>
+      </interface>
+      <emulab:vnode name="amd103" hardware_type="c6525-25g"/>
+      <host name="node0.io-uring-test.ebpf-extension-PG0.utah.cloudlab.us" ipv4="128.110.219.14"/>
+      <services>
+        <login authentication="ssh-keys" hostname="amd103.utah.cloudlab.us" port="22" username="yiluli"/>
+        <login authentication="ssh-keys" hostname="amd103.utah.cloudlab.us" port="22" username="Fazanza"/>
+        <login authentication="ssh-keys" hostname="amd103.utah.cloudlab.us" port="22" username="jblock"/>
+        <emulab:console server="boss.utah.cloudlab.us"/>
+        <emulab:recovery available="true"/>
+        <emulab:powercycle available="true"/>
+        <emulab:imageable available="true"/>
+      </services>
+    </node>
+    <node xmlns:emulab="http://www.protogeni.net/resources/rspec/ext/emulab/1" client_id="node1" exclusive="true" component_manager_id="urn:publicid:IDN+utah.cloudlab.us+authority+cm" component_id="urn:publicid:IDN+utah.cloudlab.us+node+amd106" sliver_id="urn:publicid:IDN+utah.cloudlab.us+sliver+1951108">
+      <sliver_type name="raw-pc">
+        <disk_image name="urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU22-64-STD"/>
+      </sliver_type>
+      <hardware_type name="c6525-25g"/>
+      <interface client_id="node1:eth1" component_id="urn:publicid:IDN+utah.cloudlab.us+interface+amd106:eth2" sliver_id="urn:publicid:IDN+utah.cloudlab.us+sliver+1951112" mac_address="0c42a1dd612c">
+        <ip address="10.10.1.2" type="ipv4" netmask="255.255.255.0"/>
+      </interface>
+      <emulab:vnode name="amd106" hardware_type="c6525-25g"/>
+      <host name="node1.io-uring-test.ebpf-extension-PG0.utah.cloudlab.us" ipv4="128.110.219.17"/>
+      <services>
+        <login authentication="ssh-keys" hostname="amd106.utah.cloudlab.us" port="22" username="yiluli"/>
+        <login authentication="ssh-keys" hostname="amd106.utah.cloudlab.us" port="22" username="Fazanza"/>
+        <login authentication="ssh-keys" hostname="amd106.utah.cloudlab.us" port="22" username="jblock"/>
+        <emulab:console server="boss.utah.cloudlab.us"/>
+        <emulab:recovery available="true"/>
+        <emulab:powercycle available="true"/>
+        <emulab:imageable available="true"/>
+      </services>
+    </node>
+    <link client_id="link-1" sliver_id="urn:publicid:IDN+utah.cloudlab.us+sliver+1951110" vlantag="260">
+      <interface_ref client_id="node0:eth1" component_id="urn:publicid:IDN+utah.cloudlab.us+interface+amd103:eth2" sliver_id="urn:publicid:IDN+utah.cloudlab.us+sliver+1951111"/>
+      <interface_ref client_id="node1:eth1" component_id="urn:publicid:IDN+utah.cloudlab.us+interface+amd106:eth2" sliver_id="urn:publicid:IDN+utah.cloudlab.us+sliver+1951112"/>
+      <component_manager name="urn:publicid:IDN+utah.cloudlab.us+authority+cm"/>
+    </link>
+    <rspec_tour xmlns="http://www.protogeni.net/resources/rspec/ext/apt-tour/1">
+      <description type="markdown">Variable number of nodes in a lan. You have the option of picking from one
+  of several standard images we provide, or just use the default (typically a recent
+  version of Ubuntu). You may also optionally pick the specific hardware type for
+  all the nodes in the lan. </description>
+    </rspec_tour>
+  </rspec>
+  
