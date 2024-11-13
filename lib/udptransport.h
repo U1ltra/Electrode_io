@@ -174,6 +174,8 @@ private:
     static int add_recv(struct iouring_ctx *ring_ctx, int fd);
     static int process_cqe_send(struct iouring_ctx *ring_ctx, struct io_uring_cqe *cqe);
     static int process_cqe_recv(struct iouring_ctx *ring_ctx, struct io_uring_cqe *cqe, int fdidx);
+    int assemble_frag(void *payload, size_t len, sockaddr_in *sender);
+    void recycle_buffer(struct iouring_ctx *ring_ctx, int idx);
 };
 
 #endif  // _LIB_UDPTRANSPORT_H_

@@ -590,7 +590,7 @@ UDPTransport::OnReadable(int fd)
         socklen_t senderSize = sizeof(sender);
         
         sz = recvfrom(fd, buf, BUFSIZE, 0,
-                      (struct sockaddr *) &sender, &senderSize);
+                      (struct sockaddr *) &sender, &senderSize); // blocking
         if (sz == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 break;
@@ -644,7 +644,7 @@ UDPTransport::OnReadable(int fd)
                 Warning("Fragments out of order for packet %" PRIx64 "; "
                         "expected start %zd, got %zd",
                         msgId, info.data.size(), fragStart);
-                continue;
+                continue; 
             }
             
             info.data.append(string(ptr, buf+sz-ptr));
@@ -654,7 +654,7 @@ UDPTransport::OnReadable(int fd)
                 info.msgId = 0;
                 info.data.clear();
             } else {
-                continue;
+                continue; // continue to receive the next fragment and deliver until full packet is reassembled.
             }
         } else {
             Warning("Received packet with bad magic number");
@@ -981,14 +981,170 @@ int UDPTransport::add_recv(struct iouring_ctx *ring_ctx, int fd) {
 
 int
 UDPTransport::process_cqe_send(struct iouring_ctx *ring_ctx, struct io_uring_cqe *cqe) {
-    //TODO
+    // send completion, just mark as seen and free the buffer
+
     
     return 0;
 }
 
 int
 UDPTransport::process_cqe_recv(struct iouring_ctx *ring_ctx, struct io_uring_cqe *cqe, int fdidx) {
-    //TODO
+    // recv completion, handle fragmentation and deliver
+
+    // handling io_uring recvmsg completion to prepare for delivery //
+    int ret, idx;
+    struct io_uring_recvmsg_out *recvmsg_out;
+    struct io_uring_sqe *sqe;
+
+    if (!(cqe->flags & IORING_CQE_F_MORE)) {
+        ret = add_recv(ring_ctx, fdidx);
+        if (ret) {
+            PPanic("Failed to add recv");
+            return ret;
+        }
+    }
+
+    if (cqe->res == -ENOBUFS) { 
+        return 0;
+    }
+
+    // for completions using io_uring buffer, 
+    // IORING_CQE_F_BUFFER is set to indicate success
+    if (!(cqe->flags & IORING_CQE_F_BUFFER) || cqe->res < 0) {
+        PPanic("recvmsg failed with %d", cqe->res);
+        if (cqe->res == -EFAULT || cqe->res == -EINVAL) {
+            PPanic("NB: This requires a kernel version >= 6.0");
+        }
+        return -1;
+    }
+
+    idx = cqe->flags >> 16; // get the buffer index
+
+    recvmsg_out = io_uring_recvmsg_validate(get_buffer(ring_ctx, idx), cqe->res, &ring_ctx->msg);
+    if (!recvmsg_out) {
+        PPanic("Failed to validate recvmsg");
+        return -1;
+    }
+    if (recvmsg_out->namelen > ring_ctx->msg.msg_namelen) {
+        PPanic("truncate address name");
+    }
+    if (recvmsg_out->flags & MSG_TRUNC) {
+        unsiged int r;
+        r = io_uring_recvmsg_payload_length(recvmsg_out, cqe->res, &ring_ctx->msg);
+        PPanic("truncated msg need %u received %u", recvmsg_out->payloadlen, r);
+    }
+
+    if (ring_ctx->verbose) {
+        struct sockaddr_in *addr = io_uring_recvmsg_name(recvmsg_out);
+        struct sockaddr_in6 *addr6 = (void *)addr;
+        char buf[INET6_ADDRSTRLEN + 1];
+        const char *name;
+        void *addrp;
+
+        if (ring_ctx->af == AF_INET) {
+            addrp = &addr->sin_addr;
+        } else {
+            addrp = &addr6->sin6_addr;
+        }
+        name = inet_ntop(ring_ctx->af, addrp, buf, sizeof(buf));
+        if (!name) {
+            name = "<INVALID>";
+        }
+
+        fprintf(stderr, "received %u bytes %d from [%s]:%d\n",
+			io_uring_recvmsg_payload_length(,
+                recvmsg_out, cqe->res, &ring_ctx->msg),
+			recvmsg_out->namelen, name, (int)ntohs(addr->sin_port));
+    }
+
+    // process the received message //
+    void *pack_payload = io_uring_recvmsg_payload(recvmsg_out, &ring_ctx->msg);
+    size_t pack_len = io_uring_recvmsg_payload_length(recvmsg_out, cqe->res, &ring_ctx->msg);
+
+    string msgType, msg;
+    sockaddr_in *sender = (sockaddr_in *)io_uring_recvmsg_name(recvmsg_out);
+    ret = assemble_frag(pack_payload, pack_len, sender, msgType, msg);
+    if (ret == 0) {
+        UDPTransportAddress senderAddr(*sender);
+        TransportReceiver *receiver = receivers[fdidx];
+        receiver->ReceiveMessage(senderAddr, msgType, msg);
+    }
+
+    recycle_buffer(ring_ctx, idx); // recycle the consumed buffer
 
     return 0;
+}
+
+int UDPTransport::assemble_frag(void *pack_payload, size_t pack_len, sockaddr_in *sender, string &msgType, string &msg) {
+    ASSERT(pack_len > 0);
+    ASSERT(sizeof(uint32_t) - pack_len > 0);
+
+    char *buf = (char *)pack_payload;
+    UDPTransportAddress senderAddr(*sender);
+
+    uint32_t magic = *(uint32_t*)buf;
+    if (magic == NONFRAG_MAGIC) {
+        DecodePacket(buf+sizeof(uint32_t), pack_len-sizeof(uint32_t), msgType, msg);
+        return 0; // ready to deliver
+    } else if (magic == FRAG_MAGIC) {
+        const char *ptr = buf;
+        ptr += sizeof(uint32_t);
+        ASSERT(ptr-buf < pack_len);
+        uint64_t msgId = *((uint64_t *)ptr);
+        ptr += sizeof(uint64_t);
+        ASSERT(ptr-buf < pack_len);
+        size_t fragStart = *((size_t *)ptr);
+        ptr += sizeof(size_t);
+        ASSERT(ptr-buf < pack_len);
+        size_t msgLen = *((size_t *)ptr);
+        ptr += sizeof(size_t);
+        ASSERT(ptr-buf < pack_len);
+        ASSERT(buf+pack_len-ptr == (ssize_t) std::min(msgLen-fragStart,
+                                                    MAX_UDP_MESSAGE_SIZE));
+        Notice("Received fragment of %zd byte packet %" PRIx64 " starting at %zd",
+                msgLen, msgId, fragStart);
+        UDPTransportFragInfo &info = fragInfo[senderAddr];
+        if (info.msgId == 0) {
+            info.msgId = msgId;
+            info.data.clear();
+        }
+        if (info.msgId != msgId) {
+            ASSERT(msgId > info.msgId);
+            Warning("Failed to reconstruct packet %" PRIx64 "", info.msgId);
+            info.msgId = msgId;
+            info.data.clear();
+        }
+        
+        if (fragStart != info.data.size()) {
+            Warning("Fragments out of order for packet %" PRIx64 "; "
+                    "expected start %zd, got %zd",
+                    msgId, info.data.size(), fragStart);
+            return -1; // drop the out-of-order fragment
+        }
+        
+        info.data.append(string(ptr, buf+pack_len-ptr));
+        if (info.data.size() == msgLen) {
+            Debug("Completed packet reconstruction");
+            DecodePacket(info.data.c_str(), info.data.size(), msgType, msg);
+            info.msgId = 0;
+            info.data.clear();
+            return 0; // ready to deliver
+        } 
+    } else {
+        Warning("Received packet with bad magic number");
+    }
+
+    return -1; // not ready to deliver
+}
+
+void recycle_buffer(struct iouring_ctx *ring_ctx, int idx) {
+    io_uring_buf_ring_add(
+        ring_ctx->buf_ring, 
+        get_buffer(ring_ctx, idx), 
+        buffer_size(ring_ctx), 
+        idx, 
+        io_uring_buf_ring_mask(BUFFERS), 
+        0
+    );
+    io_uring_buf_ring_advance(ring_ctx->buf_ring, 1);
 }
