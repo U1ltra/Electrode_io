@@ -53,7 +53,7 @@
 struct sendmsg_ctx {
     struct msghdr msg;
     struct iovec iov;
-}
+};
 
 struct iouring_ctx {
     struct io_uring ring; // io_uring object
@@ -67,7 +67,7 @@ struct iouring_ctx {
     size_t send_size;
     int send_idx;
     size_t buf_ring_size; // size of the entire buffer ring (io_uring_buf object + buffer)*bufNum
-}
+};
 
 class UDPTransportAddress : public TransportAddress
 {

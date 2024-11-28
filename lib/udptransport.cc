@@ -37,6 +37,7 @@
 #include <google/protobuf/message.h>
 #include <event2/event.h>
 #include <event2/thread.h>
+#include <sys/eventfd.h>
 
 #include <random>
 #include <cinttypes>
@@ -68,14 +69,14 @@ const uint64_t FDIDX_MASK = 0x00000000ffffffff;
 
 using std::pair;
 
-static size_t buffer_size(struct ctx *ctx)
+static size_t buffer_size(struct iouring_ctx *ring_ctx)
 {
-	return 1U << ctx->buf_shift;
+	return 1U << ring_ctx->buf_shift;
 }
 
-static unsigned char *get_buffer(struct ctx *ctx, int idx)
+static unsigned char *get_buffer(struct iouring_ctx *ring_ctx, int idx)
 {
-	return ctx->buffer_base + (idx << ctx->buf_shift);
+	return ring_ctx->buffer_base + (idx << ring_ctx->buf_shift);
 }
 
 UDPTransportAddress::UDPTransportAddress(const sockaddr_in &addr)
@@ -258,7 +259,7 @@ UDPTransport::~UDPTransport()
     // }
 
     // free io_uring
-    io_uring_unregister_eventfd(&ring);
+    io_uring_unregister_eventfd(&(ring_ctx.ring));
     io_uring_queue_exit(&ring);
 
 }
@@ -400,7 +401,7 @@ UDPTransport::Register(TransportReceiver *receiver,
         PPanic("Failed to create eventfd");
     }
     // register the eventfd to io_uring
-    if (io_uring_register_eventfd(&ring_ctx.ring, event_fd) < 0) {
+    if (io_uring_register_eventfd(&(ring_ctx.ring), event_fd) < 0) {
         PPanic("Failed to register eventfd");
     }
     // set up a libevent callback for the eventfd
