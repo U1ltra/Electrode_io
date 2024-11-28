@@ -56,6 +56,8 @@ const int SOCKET_BUF_SIZE = 10485760;
 const uint64_t NONFRAG_MAGIC = 0x20050318;
 const uint64_t FRAG_MAGIC = 0x20101010;
 
+const uint64_t FDIDX_MASK = 0x00000000ffffffff;
+
 #define FAST_PAXOS_DATA_LEN 12
 
 #define QD 128
@@ -408,12 +410,22 @@ UDPTransport::Register(TransportReceiver *receiver,
     listenerEvents.push_back(ev_eventfd);
 
     int ret;
-    ret = io_uring_register_files(&ring_ctx.ring, &fd, 1);
+    int *fd_ptr = (int *)malloc(sizeof(int) * (idxfd_map.size() + 1));
+    for (int i = 0; i < idxfd_map.size(); i++) {
+        fd_ptr[i] = idxfd_map[i];
+    }
+
+    fd_ptr[idxfd_map.size()] = fd;
+    fdidx_map[fd] = idxfd_map.size();
+    idxfd_map[idxfd_map.size()] = fd;
+    
+    // add the new fd to the io_uring
+    ret = io_uring_register_files(&ring_ctx.ring, fd_ptr, idxfd_map.size());
     if (ret < 0) {
         PPanic("Failed to register files");
     }
 
-    ret = add_recv(&ring_ctx, fd);
+    ret = add_recv(&ring_ctx, fdidx_map[fd]);
     if (ret < 0) {
         PPanic("Failed to add recv");
     }
@@ -493,6 +505,9 @@ UDPTransport::SendMessageInternal(TransportReceiver *src,
                                   const Message &m,
                                   bool multicast,
                                   const void *my_buf) {
+    
+    return send_message(ring_ctx, src, dst, m, my_buf);
+
     sockaddr_in sin = dynamic_cast<const UDPTransportAddress &>(dst).addr;
 
     // Serialize message
@@ -845,12 +860,15 @@ void
 UDPTransport::OnCompletion(struct iouring_ctx *ring_ctx, struct io_uring_cqe **cqe_ptrs, int count) {
     //TODO
     for (int i = 0; i < count; i++) {
-        if (cqe_ptrs[i]->user_data < BUFFERS) 
+        if (cqe_ptrs[i]->user_data & FDIDX_MASK < BUFFERS) {
             if (process_cqe_send(ring_ctx, cqe_ptrs[i])) {
                 PPanic("Failed to process send cqe");
             }
         else:
-            if (process_cqe_recv(ring_ctx, cqe_ptrs[i], 0)) { // fdidx = 0, only one registered fd in current version.
+        // user_data << 16 is the fdidx for the socket
+            if (process_cqe_recv(
+                ring_ctx, cqe_ptrs[i], cqe_ptrs[i]->user_data >> 16
+                )) { 
                 PPanic("Failed to process recv cqe");
             }
     }
@@ -869,6 +887,7 @@ UDPTransport::RingCallback(evutil_socket_t fd, short what, void *arg)
         return;
     }
     OnCompletion(ring_ctx, cqes, count);
+    io_uring_cq_advance(ring_ctx->ring, count);
 }
 
 int
@@ -970,20 +989,32 @@ int UDPTransport::add_recv(struct iouring_ctx *ring_ctx, int fd) {
         return -1;
     }
 
-    io_uring_prep_recv_multishot(sqe, fd, ring_ctx->msg, MSG_TRUNC);
+    io_uring_prep_recvmsg_multishot(sqe, fd, ring_ctx->msg, MSG_TRUNC);
     sqe->flags |= IOSQE_FIXED_FILE;
     sqe->flags |= IOSQE_BUFFER_SELECT;
     sqe->buffer_group = 0;
-    io_uring_sqe_set_data64(sqe, BUFFERS+1);
+
+    // store the buffer index in the high 16 bits of the user data
+    uint64_t user_data = ((uint64_t)fdidx_map[fd] << 16) | fdidx_map[fd];
+    sqe->user_data = user_data;
 
     return 0;
 }
 
 int
 UDPTransport::process_cqe_send(struct iouring_ctx *ring_ctx, struct io_uring_cqe *cqe) {
-    // send completion, just mark as seen and free the buffer
+    // send completion
+    int send_idx = cqe->user_data & FDIDX_MASK;
+    if (cqe->res < 0) {
+        PPanic("sendmsg failed with %d", cqe->res);
+        return -1;
+    }
+    if (cqe->res != ring_ctx->send[send_idx].msg_len) {
+        PPanic("sendmsg failed to send all bytes %d != %d", cqe->res, ring_ctx->send[send_idx].msg_len);
+        return -1;
+    }
 
-    
+    recycle_buffer(ring_ctx, ring_ctx->send[send_idx].buf_idx);
     return 0;
 }
 
@@ -994,7 +1025,6 @@ UDPTransport::process_cqe_recv(struct iouring_ctx *ring_ctx, struct io_uring_cqe
     // handling io_uring recvmsg completion to prepare for delivery //
     int ret, idx;
     struct io_uring_recvmsg_out *recvmsg_out;
-    struct io_uring_sqe *sqe;
 
     if (!(cqe->flags & IORING_CQE_F_MORE)) {
         ret = add_recv(ring_ctx, fdidx);
@@ -1065,12 +1095,11 @@ UDPTransport::process_cqe_recv(struct iouring_ctx *ring_ctx, struct io_uring_cqe
     sockaddr_in *sender = (sockaddr_in *)io_uring_recvmsg_name(recvmsg_out);
     ret = assemble_frag(pack_payload, pack_len, sender, msgType, msg);
     if (ret == 0) {
+        int fd = idxfd_map[fdidx];
         UDPTransportAddress senderAddr(*sender);
-        TransportReceiver *receiver = receivers[fdidx];
+        TransportReceiver *receiver = receivers[fd];
         receiver->ReceiveMessage(senderAddr, msgType, msg);
     }
-
-    recycle_buffer(ring_ctx, idx); // recycle the consumed buffer
 
     return 0;
 }
@@ -1147,4 +1176,100 @@ void recycle_buffer(struct iouring_ctx *ring_ctx, int idx) {
         0
     );
     io_uring_buf_ring_advance(ring_ctx->buf_ring, 1);
+}
+
+bool
+UDPTransport::sendmsg_iouring(
+    struct iouring_ctx *ring_ctx, 
+    TransportReceiver *src, 
+    const UDPTransportAddress &dst, 
+    const Message &m, 
+    const void *my_buf
+) {
+    sockaddr_in sin = dynamic_cast<const UDPTransportAddress &>(dst).addr;
+
+    char *buf;
+    size_t msgLen = SerializeMessage(m, &buf, my_buf);
+
+    int fd = fds[src];
+    int fdidx = fdidx_map[fd];
+    int send_idx = ring_ctx->send_idx;
+    
+    struct io_uring_sqe *sqe;
+    sqe = io_uring_get_sqe(&ring_ctx->ring);
+    if (!sqe) {
+        io_uring_submit(&ring_ctx->ring);
+        sqe = io_uring_get_sqe(&ring_ctx->ring);
+    }
+    if (!sqe) {
+        return false;
+    }
+
+
+    if (msgLen <= MAX_UDP_MESSAGE_SIZE) {
+        ring_ctx->send[send_idx].iov = (struct iovec){
+            .iov_base = buf,
+            .iov_len = msgLen
+        };
+
+        ring_ctx->send[send_idx].msg = (struct msghdr){
+            .msg_name = &sin,
+            .msg_namelen = sizeof(sin),
+            .msg_control = NULL,
+		    .msg_controllen = 0,
+            .msg_iov = &ring_ctx->send[send_idx].iov,
+            .msg_iovlen = 1
+        };
+
+        io_uring_prep_sendmsg(sqe, fdidx, &ring_ctx->send[send_idx].msg, 0);
+        io_uring_sqe_set_data(sqe, send_idx);
+        sqe->flags |= IOSQE_FIXED_FILE;
+        
+        ring_ctx->send_idx = (send_idx + 1) % ring_ctx->send_size;
+
+    } else {
+        msgLen -= sizeof(uint32_t);
+        char *bodyStart = buf + sizeof(uint32_t);
+        int numFrags = ((msgLen-1) / MAX_UDP_MESSAGE_SIZE) + 1;
+        Notice("Sending large %s message in %d fragments",
+               m.GetTypeName().c_str(), numFrags);
+        uint64_t msgId = ++lastFragMsgId;
+        for (size_t fragStart = 0; fragStart < msgLen;
+             fragStart += MAX_UDP_MESSAGE_SIZE) {
+            size_t fragLen = std::min(msgLen - fragStart,
+                                      MAX_UDP_MESSAGE_SIZE);
+            size_t fragHeaderLen = 2*sizeof(size_t) + sizeof(uint64_t) + sizeof(uint32_t);
+            char fragBuf[fragLen + fragHeaderLen];
+            char *ptr = fragBuf;
+            *((uint32_t *)ptr) = FRAG_MAGIC;
+            ptr += sizeof(uint32_t);
+            *((uint64_t *)ptr) = msgId;
+            ptr += sizeof(uint64_t);
+            *((size_t *)ptr) = fragStart;
+            ptr += sizeof(size_t);
+            *((size_t *)ptr) = msgLen;
+            ptr += sizeof(size_t);
+            memcpy(ptr, &bodyStart[fragStart], fragLen);
+            
+            ring_ctx->send[send_idx].iov = (struct iovec){
+                .iov_base = fragBuf,
+                .iov_len = fragLen + fragHeaderLen
+            };
+
+            ring_ctx->send[send_idx].msg = (struct msghdr){
+                .msg_name = &sin,
+                .msg_namelen = sizeof(sin),
+                .msg_control = NULL,
+                .msg_controllen = 0,
+                .msg_iov = &ring_ctx->send[send_idx].iov,
+                .msg_iovlen = 1
+            };
+
+            io_uring_prep_sendmsg(sqe, fdidx, &ring_ctx->send[send_idx].msg, 0);
+            io_uring_sqe_set_data(sqe, send_idx);
+            sqe->flags |= IOSQE_FIXED_FILE;
+            
+            ring_ctx->send_idx = (send_idx + 1) % ring_ctx->send_size;
+        }
+    }               
 }

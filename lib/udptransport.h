@@ -65,6 +65,7 @@ struct iouring_ctx {
     bool verbose;
     struct sendmsg_ctx *send;
     size_t send_size;
+    int send_idx;
     size_t buf_ring_size; // size of the entire buffer ring (io_uring_buf object + buffer)*bufNum
 }
 
@@ -140,6 +141,8 @@ private:
 
     // io_uring
     struct iouring_ctx ring_ctx;
+    std::map<int, int> fdidx_map; // fd -> idx
+    std::map<int, int> idxfd_map; // idx -> fd
     
 
     bool SendMessageInternal(TransportReceiver *src,
@@ -176,6 +179,7 @@ private:
     static int process_cqe_recv(struct iouring_ctx *ring_ctx, struct io_uring_cqe *cqe, int fdidx);
     int assemble_frag(void *payload, size_t len, sockaddr_in *sender);
     void recycle_buffer(struct iouring_ctx *ring_ctx, int idx);
+    bool sendmsg_iouring(struct iouring_ctx *ring_ctx, TransportReceiver *src, const UDPTransportAddress &dst, const Message &m, const void *my_buf);
 };
 
 #endif  // _LIB_UDPTRANSPORT_H_
