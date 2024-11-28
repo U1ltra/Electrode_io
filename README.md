@@ -109,7 +109,10 @@ sudo reboot
 
 If the reboot is successful, install io_uring for user space programming
 ```bash
-sudo apt-get install liburing-dev
+git clone https://github.com/axboe/liburing
+cd liburing
+make
+sudo make install
 ```
 
 If the above does not with, refer to [this solution](https://askubuntu.com/questions/1378948/availability-of-liburing-in-ubuntu-20-04).
