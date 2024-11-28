@@ -170,16 +170,16 @@ private:
     static void SignalCallback(evutil_socket_t fd,
                                short what, void *arg);
 
-    void OnCompletion(struct iouring_ctx *ring_ctx, struct io_uring_cqe **cqe, int count);
+    void OnCompletion(struct io_uring_cqe **cqe, int count);
     static void RingCallback(evutil_socket_t fd, short what, void *arg);
     static int setup_iouring(struct iouring_ctx *ring_ctx, int af, bool verbose, int buf_shift);
     static int setup_buffer_pool(struct iouring_ctx *ring_ctx);
-    static int add_recv(struct iouring_ctx *ring_ctx, int fd);
-    static int process_cqe_send(struct iouring_ctx *ring_ctx, struct io_uring_cqe *cqe);
-    static int process_cqe_recv(struct iouring_ctx *ring_ctx, struct io_uring_cqe *cqe, int fdidx);
+    static int add_recv(int fd);
+    static int process_cqe_send(struct io_uring_cqe *cqe);
+    static int process_cqe_recv(struct io_uring_cqe *cqe, int fdidx);
     int assemble_frag(void *payload, size_t len, sockaddr_in *sender);
     void recycle_buffer(struct iouring_ctx *ring_ctx, int idx);
-    bool sendmsg_iouring(struct iouring_ctx *ring_ctx, TransportReceiver *src, const UDPTransportAddress &dst, const Message &m, const void *my_buf);
+    bool sendmsg_iouring(TransportReceiver *src, const UDPTransportAddress &dst, const Message &m, const void *my_buf);
 };
 
 #endif  // _LIB_UDPTRANSPORT_H_
