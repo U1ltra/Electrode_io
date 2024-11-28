@@ -260,7 +260,7 @@ UDPTransport::~UDPTransport()
 
     // free io_uring
     io_uring_unregister_eventfd(&(ring_ctx.ring));
-    io_uring_queue_exit(&ring);
+    io_uring_queue_exit(&(ring_ctx.ring));
 
 }
 
@@ -412,7 +412,7 @@ UDPTransport::Register(TransportReceiver *receiver,
 
     int ret;
     int *fd_ptr = (int *)malloc(sizeof(int) * (idxfd_map.size() + 1));
-    for (int i = 0; i < idxfd_map.size(); i++) {
+    for (size_t i = 0; i < idxfd_map.size(); i++) {
         fd_ptr[i] = idxfd_map[i];
     }
 
@@ -507,7 +507,7 @@ UDPTransport::SendMessageInternal(TransportReceiver *src,
                                   bool multicast,
                                   const void *my_buf) {
     
-    return send_message(ring_ctx, src, dst, m, my_buf);
+    return sendmsg_iouring(ring_ctx, src, dst, m, my_buf);
 
     sockaddr_in sin = dynamic_cast<const UDPTransportAddress &>(dst).addr;
 
@@ -858,7 +858,8 @@ UDPTransport::SignalCallback(evutil_socket_t fd, short what, void *arg)
 }
 
 void
-UDPTransport::OnCompletion(struct iouring_ctx *ring_ctx, struct io_uring_cqe **cqe_ptrs, int count) {
+UDPTransport::OnCompletion(struct iouring_ctx *ring_ctx, struct io_uring_cqe **cqe_ptrs, int count) 
+{
     //TODO
     for (int i = 0; i < count; i++) {
         if (cqe_ptrs[i]->user_data & FDIDX_MASK < BUFFERS) {
@@ -872,6 +873,7 @@ UDPTransport::OnCompletion(struct iouring_ctx *ring_ctx, struct io_uring_cqe **c
                 )) { 
                 PPanic("Failed to process recv cqe");
             }
+        }
     }
 }
 

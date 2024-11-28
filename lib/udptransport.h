@@ -170,7 +170,7 @@ private:
     static void SignalCallback(evutil_socket_t fd,
                                short what, void *arg);
 
-    void OnCompletion(struct iouring_ctx *ring_ctx, struct io_uring_cqe **cqe);
+    void OnCompletion(struct iouring_ctx *ring_ctx, struct io_uring_cqe **cqe, int count);
     static void RingCallback(evutil_socket_t fd, short what, void *arg);
     static int setup_iouring(struct iouring_ctx *ring_ctx, int af, bool verbose, int buf_shift);
     static int setup_buffer_pool(struct iouring_ctx *ring_ctx);
