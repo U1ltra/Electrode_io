@@ -1,34 +1,24 @@
 # Speeding Distributed Protocols using eBPF and io_uring
 
-## Reproducing the results
-
 Configure a cluster of 4-nodes x86 machines. For easy setup, use profiles
-- c6525-25g (best option if available)
+- c6525-25g/c6525-100g (best option if available)
 - m400
 - m510_reduced
 
 In all shells
 ```bash
 wget https://raw.githubusercontent.com/pimlie/ubuntu-mainline-kernel.sh/master/ubuntu-mainline-kernel.sh
-sudo bash ubuntu-mainline-kernel.sh -i 5.8.0
+sudo bash ubuntu-mainline-kernel.sh -i 6.0.0
 sudo reboot
 
 sudo apt update
 sudo apt install llvm clang gpg curl tar xz-utils make gcc flex bison libssl-dev libelf-dev protobuf-compiler pkg-config libunwind-dev libssl-dev libprotobuf-dev libevent-dev libgtest-dev
 
-git clone https://github.com/Electrode-NSDI23/Electrode
-cd Electrode/
+git clone https://github.com/U1ltra/Electrode_io
+cd Electrode_io/
 
 bash kernel-src-download.sh
 bash kernel-src-prepare.sh
-
-cd ./xdp-handler/
-make clean
-make
-
-cd ..
-make clean
-make PARANOID=0
 
 ifconfig
 ```
@@ -65,13 +55,13 @@ sudo ./fast <interface-name>
 In new terminals:
 
 ```bash
-cd ./Electrode/
+cd ./Electrode_io/
 sudo taskset -c 1 ./bench/replica -c config.txt -m vr -i {idx} # idx=0/1/2 when f=1
 ```
 
 On the client node
 ```bash
-cd ./Electrode/
+cd ./Electrode_io/
 ./bench/client -c config.txt -m vr -n 10000
 ```
 
