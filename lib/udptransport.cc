@@ -58,7 +58,8 @@ const int SOCKET_BUF_SIZE = 10485760;
 const uint64_t NONFRAG_MAGIC = 0x20050318;
 const uint64_t FRAG_MAGIC = 0x20101010;
 
-const uint64_t FDIDX_MASK = 0x00000000ffffffff;
+// higher 48 bits for fd index
+const uint64_t FDIDX_MASK = 0x0000FFFF;
 
 #define FAST_PAXOS_DATA_LEN 12
 
@@ -408,7 +409,7 @@ UDPTransport::Register(TransportReceiver *receiver,
     }
     // set up a libevent callback for the eventfd
     event *ev_eventfd = event_new(libeventBase, event_fd, EV_READ | EV_PERSIST,
-                                  RingCallback, &ring_ctx);
+                                  RingCallback, (void *)this);
     event_add(ev_eventfd, NULL);
     listenerEvents.push_back(ev_eventfd);
 
@@ -883,7 +884,8 @@ UDPTransport::OnCompletion(struct iouring_ctx *ring_ctx_ptr, struct io_uring_cqe
 void
 UDPTransport::RingCallback(evutil_socket_t fd, short what, void *arg)
 {
-    struct iouring_ctx *ring_ctx_ptr = (struct iouring_ctx *)arg;
+    UDPTransport *transport = (UDPTransport *)arg;
+    struct iouring_ctx *ring_ctx_ptr = &(transport->ring_ctx);
     struct io_uring_cqe *cqes[CQES];
     int ret;
     unsigned int count;
@@ -957,12 +959,12 @@ UDPTransport::setup_buffer_pool(struct iouring_ctx *ring_ctx_ptr) {
     reg = (struct io_uring_buf_reg){
         .ring_addr = (unsigned long)ring_ctx_ptr->buf_ring,
         .ring_entries = BUFFERS,
-        .bdid = 0
+        .bgid = 0
     };
 
     ring_ctx_ptr->buffer_base = (unsigned char *)ring_ctx_ptr->buf_ring + sizeof(struct io_uring_buf) * BUFFERS;
 
-    ret = io_uring_register_buffers(&ring_ctx_ptr->ring, &reg, 0);
+    ret = io_uring_register_buf_ring(&ring_ctx_ptr->ring, &reg, 0);
     if (ret) {
         PPanic("Failed to register buffers");
         return ret;
@@ -983,7 +985,7 @@ UDPTransport::setup_buffer_pool(struct iouring_ctx *ring_ctx_ptr) {
     return 0;
 }
 
-int UDPTransport::add_recv(struct iouring_ctx *ring_ctx_ptr, int fd) {
+int UDPTransport::add_recv(struct iouring_ctx *ring_ctx_ptr, int fdidx) {
     struct io_uring_sqe *sqe;
     int ret;
 
@@ -996,13 +998,13 @@ int UDPTransport::add_recv(struct iouring_ctx *ring_ctx_ptr, int fd) {
         return -1;
     }
 
-    io_uring_prep_recvmsg_multishot(sqe, fd, ring_ctx_ptr->msg, MSG_TRUNC);
+    io_uring_prep_recvmsg_multishot(sqe, fdidx, &ring_ctx_ptr->msg, MSG_TRUNC);
     sqe->flags |= IOSQE_FIXED_FILE;
     sqe->flags |= IOSQE_BUFFER_SELECT;
-    sqe->buffer_group = 0;
+    sqe->buf_group = 0;
 
     // store the buffer index in the high 16 bits of the user data
-    uint64_t user_data = ((uint64_t)fdidx_map[fd] << 16) | fdidx_map[fd];
+    uint64_t user_data = (((uint64_t)fdidx) << 16) | (BUFFERS + 1);
     sqe->user_data = user_data;
 
     return 0;
@@ -1017,12 +1019,12 @@ UDPTransport::process_cqe_send(struct iouring_ctx *ring_ctx_ptr, struct io_uring
         PPanic("sendmsg failed with %d", cqe->res);
         return -1;
     }
-    if (cqe->res != ring_ctx_ptr->send[send_idx].msg_len) {
-        PPanic("sendmsg failed to send all bytes %d != %d", cqe->res, ring_ctx_ptr->send[send_idx].msg_len);
+    if (cqe->res != ring_ctx_ptr->send[send_idx].iov.iov_len) {
+        PPanic("sendmsg failed to send all bytes %d != %d", cqe->res, ring_ctx_ptr->send[send_idx].iov.iov_len);
         return -1;
     }
 
-    recycle_buffer(ring_ctx_ptr, ring_ctx_ptr->send[send_idx].buf_idx);
+    recycle_buffer(ring_ctx_ptr, send_idx);
     return 0;
 }
 
@@ -1067,14 +1069,14 @@ UDPTransport::process_cqe_recv(struct iouring_ctx *ring_ctx_ptr, struct io_uring
         PPanic("truncate address name");
     }
     if (recvmsg_out->flags & MSG_TRUNC) {
-        unsiged int r;
+        unsigned int r;
         r = io_uring_recvmsg_payload_length(recvmsg_out, cqe->res, &ring_ctx_ptr->msg);
         PPanic("truncated msg need %u received %u", recvmsg_out->payloadlen, r);
     }
 
     if (ring_ctx_ptr->verbose) {
-        struct sockaddr_in *addr = io_uring_recvmsg_name(recvmsg_out);
-        struct sockaddr_in6 *addr6 = (void *)addr;
+        struct sockaddr_in *addr = (sockaddr_in *) io_uring_recvmsg_name(recvmsg_out);
+        struct sockaddr_in6 *addr6 = (sockaddr_in6 *)addr;
         char buf[INET6_ADDRSTRLEN + 1];
         const char *name;
         void *addrp;
@@ -1090,7 +1092,7 @@ UDPTransport::process_cqe_recv(struct iouring_ctx *ring_ctx_ptr, struct io_uring
         }
 
         fprintf(stderr, "received %u bytes %d from [%s]:%d\n",
-			io_uring_recvmsg_payload_length(,
+			io_uring_recvmsg_payload_length(
                 recvmsg_out, cqe->res, &ring_ctx_ptr->msg),
 			recvmsg_out->namelen, name, (int)ntohs(addr->sin_port));
     }
@@ -1230,7 +1232,7 @@ UDPTransport::sendmsg_iouring(
         };
 
         io_uring_prep_sendmsg(sqe, fdidx, &ring_ctx_ptr->send[send_idx].msg, 0);
-        io_uring_sqe_set_data(sqe, send_idx);
+        io_uring_sqe_set_data64(sqe, send_idx);
         sqe->flags |= IOSQE_FIXED_FILE;
         
         ring_ctx_ptr->send_idx = (send_idx + 1) % ring_ctx_ptr->send_size;
@@ -1274,7 +1276,7 @@ UDPTransport::sendmsg_iouring(
             };
 
             io_uring_prep_sendmsg(sqe, fdidx, &ring_ctx_ptr->send[send_idx].msg, 0);
-            io_uring_sqe_set_data(sqe, send_idx);
+            io_uring_sqe_set_data64(sqe, send_idx);
             sqe->flags |= IOSQE_FIXED_FILE;
             
             ring_ctx_ptr->send_idx = (send_idx + 1) % ring_ctx_ptr->send_size;

@@ -174,10 +174,10 @@ private:
     static void RingCallback(evutil_socket_t fd, short what, void *arg);
     static int setup_iouring(struct iouring_ctx *ring_ctx_ptr, int af, bool verbose, int buf_shift);
     static int setup_buffer_pool(struct iouring_ctx *ring_ctx);
-    static int add_recv(struct iouring_ctx *ring_ctx_ptr, int fd);
-    static int process_cqe_send(struct iouring_ctx *ring_ctx_ptr, struct io_uring_cqe *cqe);
-    static int process_cqe_recv(struct iouring_ctx *ring_ctx_ptr, struct io_uring_cqe *cqe, int fdidx);
-    int assemble_frag(void *payload, size_t len, sockaddr_in *sender);
+    int add_recv(struct iouring_ctx *ring_ctx_ptr, int fd);
+    int process_cqe_send(struct iouring_ctx *ring_ctx_ptr, struct io_uring_cqe *cqe);
+    int process_cqe_recv(struct iouring_ctx *ring_ctx_ptr, struct io_uring_cqe *cqe, int fdidx);
+    int assemble_frag(void *payload, size_t len, sockaddr_in *sender, string &msgType, string &msg);
     void recycle_buffer(struct iouring_ctx *ring_ctx_ptr, int idx);
     bool sendmsg_iouring(TransportReceiver *src, const UDPTransportAddress &dst, const Message &m, const void *my_buf);
 };
