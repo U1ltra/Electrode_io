@@ -428,7 +428,7 @@ UDPTransport::Register(TransportReceiver *receiver,
         PPanic("Failed to register files");
     }
 
-    ret = add_recv(fdidx_map[fd]);
+    ret = add_recv(&ring_ctx, fdidx_map[fd]);
     if (ret < 0) {
         PPanic("Failed to add recv");
     }
@@ -860,19 +860,19 @@ UDPTransport::SignalCallback(evutil_socket_t fd, short what, void *arg)
 }
 
 void
-UDPTransport::OnCompletion(struct io_uring_cqe **cqe_ptrs, int count) 
+UDPTransport::OnCompletion(struct iouring_ctx *ring_ctx_ptr, struct io_uring_cqe **cqe_ptrs, int count) 
 {
     //TODO
     for (int i = 0; i < count; i++) {
         if ((cqe_ptrs[i]->user_data & FDIDX_MASK) < BUFFERS) {
-            if (process_cqe_send(cqe_ptrs[i])) {
+            if (process_cqe_send(ring_ctx_ptr, cqe_ptrs[i])) {
                 PPanic("Failed to process send cqe");
             }
         }
         else{
         // user_data << 16 is the fdidx for the socket
             if (process_cqe_recv(
-                cqe_ptrs[i], cqe_ptrs[i]->user_data >> 16
+                ring_ctx_ptr, cqe_ptrs[i], cqe_ptrs[i]->user_data >> 16
                 )) { 
                 PPanic("Failed to process recv cqe");
             }
@@ -883,17 +883,17 @@ UDPTransport::OnCompletion(struct io_uring_cqe **cqe_ptrs, int count)
 void
 UDPTransport::RingCallback(evutil_socket_t fd, short what, void *arg)
 {
-    struct iouring_ctx *ring_ctx = (struct iouring_ctx *)arg;
+    struct iouring_ctx *ring_ctx_ptr = (struct iouring_ctx *)arg;
     struct io_uring_cqe *cqes[CQES];
     int ret;
     unsigned int count;
-    struct io_uring *ring = &(ring_ctx->ring);
+    struct io_uring *ring = &(ring_ctx_ptr->ring);
 
     count = io_uring_peek_batch_cqe(ring, &cqes[0], CQES);
     if (count == 0) {
         return;
     }
-    OnCompletion(cqes, count);
+    OnCompletion(ring_ctx_ptr, cqes, count);
     io_uring_cq_advance(ring, count);
 }
 
@@ -983,10 +983,9 @@ UDPTransport::setup_buffer_pool(struct iouring_ctx *ring_ctx_ptr) {
     return 0;
 }
 
-int UDPTransport::add_recv(int fd) {
+int UDPTransport::add_recv(struct iouring_ctx *ring_ctx_ptr, int fd) {
     struct io_uring_sqe *sqe;
     int ret;
-    struct iouring_ctx *ring_ctx_ptr = &ring_ctx;
 
     sqe = io_uring_get_sqe(&(ring_ctx_ptr->ring));
     if (!sqe) {
@@ -1010,9 +1009,8 @@ int UDPTransport::add_recv(int fd) {
 }
 
 int
-UDPTransport::process_cqe_send(struct io_uring_cqe *cqe) {
+UDPTransport::process_cqe_send(struct iouring_ctx *ring_ctx_ptr, struct io_uring_cqe *cqe) {
     // send completion
-    struct iouring_ctx *ring_ctx_ptr = &ring_ctx;
 
     int send_idx = cqe->user_data & FDIDX_MASK;
     if (cqe->res < 0) {
@@ -1029,17 +1027,15 @@ UDPTransport::process_cqe_send(struct io_uring_cqe *cqe) {
 }
 
 int
-UDPTransport::process_cqe_recv(struct io_uring_cqe *cqe, int fdidx) {
+UDPTransport::process_cqe_recv(struct iouring_ctx *ring_ctx_ptr, struct io_uring_cqe *cqe, int fdidx) {
     // recv completion, handle fragmentation and deliver
-
-    struct iouring_ctx *ring_ctx_ptr = &ring_ctx;
 
     // handling io_uring recvmsg completion to prepare for delivery //
     int ret, idx;
     struct io_uring_recvmsg_out *recvmsg_out;
 
     if (!(cqe->flags & IORING_CQE_F_MORE)) {
-        ret = add_recv(fdidx);
+        ret = add_recv(ring_ctx_ptr, fdidx);
         if (ret) {
             PPanic("Failed to add recv");
             return ret;
