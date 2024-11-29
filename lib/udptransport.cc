@@ -1020,7 +1020,7 @@ UDPTransport::process_cqe_send(struct iouring_ctx *ring_ctx_ptr, struct io_uring
         return -1;
     }
     if ((size_t) cqe->res != ring_ctx_ptr->send[send_idx].iov.iov_len) {
-        PPanic("sendmsg failed to send all bytes %ld != %ld", cqe->res, ring_ctx_ptr->send[send_idx].iov.iov_len);
+        PPanic("sendmsg failed to send all bytes %d != %zu", cqe->res, ring_ctx_ptr->send[send_idx].iov.iov_len);
         return -1;
     }
 
@@ -1222,14 +1222,12 @@ UDPTransport::sendmsg_iouring(
             .iov_len = msgLen
         };
 
-        ring_ctx_ptr->send[send_idx].msg = (struct msghdr){
-            .msg_name = &sin,
-            .msg_namelen = sizeof(sin),
-            .msg_iov = &ring_ctx_ptr->send[send_idx].iov,
-            .msg_iovlen = 1
-            .msg_control = NULL,
-		    .msg_controllen = 0,
-        };
+        ring_ctx_ptr->send[send_idx].msg.msg_name = &sin;
+        ring_ctx_ptr->send[send_idx].msg.msg_namelen = sizeof(sin);
+        ring_ctx_ptr->send[send_idx].msg.msg_iov = &ring_ctx_ptr->send[send_idx].iov;
+        ring_ctx_ptr->send[send_idx].msg.msg_iovlen = 1;
+        ring_ctx_ptr->send[send_idx].msg.msg_control = NULL;
+        ring_ctx_ptr->send[send_idx].msg.msg_controllen = 0;
 
         io_uring_prep_sendmsg(sqe, fdidx, &ring_ctx_ptr->send[send_idx].msg, 0);
         io_uring_sqe_set_data64(sqe, send_idx);
@@ -1266,14 +1264,12 @@ UDPTransport::sendmsg_iouring(
                 .iov_len = fragLen + fragHeaderLen
             };
 
-            ring_ctx_ptr->send[send_idx].msg = (struct msghdr){
-                .msg_name = &sin,
-                .msg_namelen = sizeof(sin),
-                .msg_iov = &ring_ctx_ptr->send[send_idx].iov,
-                .msg_iovlen = 1
-                .msg_control = NULL,
-                .msg_controllen = 0,
-            };
+            ring_ctx_ptr->send[send_idx].msg.msg_name = &sin;
+            ring_ctx_ptr->send[send_idx].msg.msg_namelen = sizeof(sin);
+            ring_ctx_ptr->send[send_idx].msg.msg_iov = &ring_ctx_ptr->send[send_idx].iov;
+            ring_ctx_ptr->send[send_idx].msg.msg_iovlen = 1;
+            ring_ctx_ptr->send[send_idx].msg.msg_control = NULL;
+            ring_ctx_ptr->send[send_idx].msg.msg_controllen = 0;
 
             io_uring_prep_sendmsg(sqe, fdidx, &ring_ctx_ptr->send[send_idx].msg, 0);
             io_uring_sqe_set_data64(sqe, send_idx);
