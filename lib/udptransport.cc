@@ -895,7 +895,7 @@ UDPTransport::RingCallback(evutil_socket_t fd, short what, void *arg)
     if (count == 0) {
         return;
     }
-    OnCompletion(ring_ctx_ptr, cqes, count);
+    transport->OnCompletion(ring_ctx_ptr, cqes, count);
     io_uring_cq_advance(ring, count);
 }
 
@@ -1019,8 +1019,8 @@ UDPTransport::process_cqe_send(struct iouring_ctx *ring_ctx_ptr, struct io_uring
         PPanic("sendmsg failed with %d", cqe->res);
         return -1;
     }
-    if (cqe->res != ring_ctx_ptr->send[send_idx].iov.iov_len) {
-        PPanic("sendmsg failed to send all bytes %d != %d", cqe->res, ring_ctx_ptr->send[send_idx].iov.iov_len);
+    if ((size_t) cqe->res != ring_ctx_ptr->send[send_idx].iov.iov_len) {
+        PPanic("sendmsg failed to send all bytes %ld != %ld", cqe->res, ring_ctx_ptr->send[send_idx].iov.iov_len);
         return -1;
     }
 
@@ -1225,10 +1225,10 @@ UDPTransport::sendmsg_iouring(
         ring_ctx_ptr->send[send_idx].msg = (struct msghdr){
             .msg_name = &sin,
             .msg_namelen = sizeof(sin),
-            .msg_control = NULL,
-		    .msg_controllen = 0,
             .msg_iov = &ring_ctx_ptr->send[send_idx].iov,
             .msg_iovlen = 1
+            .msg_control = NULL,
+		    .msg_controllen = 0,
         };
 
         io_uring_prep_sendmsg(sqe, fdidx, &ring_ctx_ptr->send[send_idx].msg, 0);
@@ -1269,10 +1269,10 @@ UDPTransport::sendmsg_iouring(
             ring_ctx_ptr->send[send_idx].msg = (struct msghdr){
                 .msg_name = &sin,
                 .msg_namelen = sizeof(sin),
-                .msg_control = NULL,
-                .msg_controllen = 0,
                 .msg_iov = &ring_ctx_ptr->send[send_idx].iov,
                 .msg_iovlen = 1
+                .msg_control = NULL,
+                .msg_controllen = 0,
             };
 
             io_uring_prep_sendmsg(sqe, fdidx, &ring_ctx_ptr->send[send_idx].msg, 0);
