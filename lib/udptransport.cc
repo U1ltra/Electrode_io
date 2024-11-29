@@ -1176,7 +1176,8 @@ int UDPTransport::assemble_frag(void *pack_payload, size_t pack_len, sockaddr_in
     return -1; // not ready to deliver
 }
 
-void recycle_buffer(struct iouring_ctx *ring_ctx, int idx) {
+void 
+UDPTransport::recycle_buffer(struct iouring_ctx *ring_ctx, int idx) {
     io_uring_buf_ring_add(
         ring_ctx->buf_ring, 
         get_buffer(ring_ctx, idx), 
