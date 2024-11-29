@@ -1,97 +1,58 @@
-# Electrode
 
-This is an implementation of accelerating multi-Paxos Protocol using eBPF, as described in the paper ["Electrode: Accelerating Distributed
-Protocols with eBPF"](https://www.usenix.org/system/files/nsdi23-zhou.pdf) from NSDI 2023.
+# Electrode I/O Handling:
+Given the event_base parameter, the UDPTransport class is likely designed to:
 
+- Handle I/O Asynchronously: Use non-blocking sockets and register them with an event loop to respond to I/O events as they occur.
+- Event-Driven Mechanism: Depend on callbacks associated with the event_base to manage incoming and outgoing network traffic efficiently.
 
-## Contents
+**some relevent functions in their implementation**
+- event_new
+- event_add
+- event_base_new
+- event_base_dispatch
 
-This repository mainly contains two parts:
+# Event-based Mechanism
+## What Kind of I/O Handling is UDPTransport Using?
+Based on the event_base parameter, it's reasonable to assume that the UDPTransport class currently uses event-driven I/O, where:
+- libevent or a similar library is utilized to monitor file descriptors (e.g., sockets) for read/write readiness.
+- The event_base facilitates non-blocking I/O operations by registering callbacks that get triggered when certain conditions are met (e.g., data is available to read, a socket is ready to write).
 
-1. Implementation of VR(Viewstamped Replication) protocol in `vr/`, the code is from [Speculative Paxos](https://github.com/UWSysLab/specpaxos). We did some modifications to implement our functions.
-2. Implementation of the three optimizations in eBPF, you can find the code in `xdp-handler/`. The structure is from the source code of [BMC](https://github.com/Orange-OpenSource/bmc-cache).
+## How Event-Driven I/O Works:
+Event Loop Initialization:
+- The event_base structure is created and initialized to manage the event loop.
+Event Registration:
+- Events (e.g., sockets for network I/O) are registered with the event_base to specify which types of events (read, write, timeout, etc.) should trigger the callbacks.
+Event Loop:
+- The event_base continuously waits for registered events to occur and dispatches them to the appropriate callback functions without blocking.
+Callback Execution:
+- When an event (e.g., a UDP packet arriving) occurs, the registered callback is executed to handle the event (e.g., reading the packet and processing it).
 
-## Building and Running
+## How io_uring Differs:
+- Direct Kernel Interaction: io_uring interacts more directly with the kernel for asynchronous I/O, bypassing some user-space event-handling overhead.
+- Multiple Operations: It supports batching multiple I/O operations and reduces the number of context switches, making it faster for high-throughput scenarios.
+- Event Handling: Unlike event_base, which is a user-space event loop, io_uring uses ring buffers for submission and completion queues to handle events more efficiently.
 
-We did our experiment in [Cloudlab](https://cloudlab.us/) by using the `raw-pc` type machine `xl170`. The initial Disk Image is `UBUNTU20-64-STD`. 
+# Implementation 
+- Message sending and receiving has been implemented using io_uring in the UDPTransport class. 
+- Main data structure for maintaining the io_uring functionality is iouring_ctx.
 
-Because we are using kernel version `5.8.0`, we should update this manually:
+### **TODO**: Remove libevent-based timeout and implement using io_uring timeout tasks
+- search for `Timeout` and `Timer`, try to understand how they are set and registered in the libevent events. They are mostly done in distributed protocol class initializers. Also, only the `vr/` directory (viewstamp replicated) paxos are of our interest right not.
+- the problem is these timeout events are registered in different places and re-registered sometimes. So we need to implement so that it work with the io_uring in the `UDPTransport` class.
+- this is probably the function you should use [io_uring_prep_timeout()](https://man7.org/linux/man-pages/man3/io_uring_prep_timeout.3.html)
 
-      wget https://raw.githubusercontent.com/pimlie/ubuntu-mainline-kernel.sh/master/ubuntu-mainline-kernel.sh
-      sudo bash ubuntu-mainline-kernel.sh -i 5.8.0
-      sudo reboot
+# io_uring timeout events
+## How to Handle Timeouts Using io_uring:
+io_uring can be used to set up timers that integrate directly with the completion queue. This means you can add a timeout operation to io_uring, and when the timer expires, it will be processed like any other I/O operation in the completion queue.
 
-You can check your kernel version by `uname -r`, before rebooting, the result is `5.4.0-100-generic`. After rebooting, the result is `5.8.0-050800-generic`.
+## Steps to Handle Timeout with io_uring:
+Prepare the Timeout Operation:
+- Use io_uring_prep_timeout() to prepare an SQE (submission queue entry) for a timeout.
+- Set the duration of the timeout using struct __kernel_timespec, which specifies the time in seconds and nanoseconds.
 
-Then install dependencies.
-      
-      sudo apt update
-      sudo apt install llvm clang gpg curl tar xz-utils make gcc flex bison libssl-dev libelf-dev protobuf-compiler pkg-config libunwind-dev libssl-dev libprotobuf-dev libevent-dev libgtest-dev
+Submit the Timeout Operation:
+- Submit the prepared SQE using io_uring_submit() to make the kernel aware of the timeout operation.
 
-Then we should build `xdp` modules, here we should run the script `kernel-src-download.sh` and `kernel-src-prepare.sh`, from [BMC project](https://www.usenix.org/conference/nsdi21/presentation/ghigoff). We did some modifications to support `5.8.0`.
+Handle the Timeout Event:
+- When the timeout expires, it will generate a completion event that can be processed like any other I/O operation using io_uring_wait_cqe() or io_uring_peek_cqe().
 
-      bash kernel-src-download.sh
-      bash kernel-src-prepare.sh
-
-Then you should be able to compile the code:
-
-1. In `./xdp-handler/`, run `make clean` and `make`.
-2. In `./`, run `make clean` and `make PARANOID=0`.
-
-In our experiment, we disabled the adaptive batching in NIC and the irqbalance:
-
-      sudo ifconfig ens1f1np1 mtu 3000 up
-      sudo ethtool -C ens1f1np1 adaptive-rx off adaptive-tx off rx-frames 1 rx-usecs 0  tx-frames 1 tx-usecs 0
-      sudo ethtool -C ens1f1np1 adaptive-rx off adaptive-tx off rx-frames 1 rx-usecs 0  tx-frames 1 tx-usecs 0
-      sudo ethtool -L ens1f1np1 combined 1
-      sudo service irqbalance stop
-      (let CPU=0; cd /sys/class/net/ens1f1np1/device/msi_irqs/;
-         for IRQ in *; do
-            echo $CPU | sudo tee /proc/irq/$IRQ/smp_affinity_list
-         done)
-
-Then you need to create a config file like (example in `./config.txt`)
-
-      f <number of failures tolerated>
-      replica <hostname>:<port>
-      replica <hostname>:<port>
-      ...
-
-Because in `TC_BROADCAST` optimization, we need to assign the mac address of the destination server, you should write the MACADDR of the cluster in line 281 of `xdp-handler/fast_user.c`. Also you need to modify the line 17 of `xdp-handler/fast_common.h`, the `CLUSTER_SIZE` should equals to $2f + 1$.
-
-Then you are able to run the code. Because our optimizations are kind of independent, which means you can specify which optimization to add, we control this by defining variables when building the project. Three optimizations are: `TC_BROADCAST`, `FAST_QUORUM_PRUNE`, and `FAST_REPLY`.
-
-Recompile the eBPF code, in `xdp-handler/`:
-
-      make clean && make EXTRA_CFLAGS="-DTC_BROADCAST -DFAST_QUORUM_PRUNE -DFAST_REPLY"
-
-Recompile the Replica code:
-
-      make clean && make CXXFLAGS="-DTC_BROADCAST -DFAST_QUORUM_PRUNE -DFAST_REPLY"
-
-Run the eBPF code, in `xdp-handler/`:
-
-      sudo ./fast ens1f1np1
-
-Run the Replica-idx (eg, 0, 1, and 2 when `f`=1) on different replica machines:
-
-      sudo taskset -c 1 ./bench/replica -c config.txt -m vr -i {idx}
-
-Then run the client on a separate client machine, n is the number of requests(you can also specify warmup by `-w` and # of clients by `-t`):
-
-      ./bench/client -c config.txt -m vr -n 10000
-
-In the end of the client run, you can get the elapsed time (which can be used to calculate throughput) and latency. 
-
-**NOTICE:** our code currently doesn't handle non-critical path cases like packet loss/reorder (which we do not observe in Cloudlab machines), machine failure, and network failure.
-
-## Cite this work
-BibTex:
-
-      @inproceedings{zhou2023electrode,
-        title={{Electrode: Accelerating Distributed Protocols with eBPF}},
-        author={Zhou, Yang and Wang, Zezhou and Dharanipragada, Sowmya and Yu, Minlan},
-        booktitle={20th USENIX Symposium on Networked Systems Design and Implementation (NSDI 23)},
-        pages={1391--1407},
-        year={2023}
-      }
