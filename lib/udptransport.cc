@@ -38,6 +38,7 @@
 #include <event2/event.h>
 #include <event2/thread.h>
 #include <sys/eventfd.h>
+#include <sys/mman.h>
 
 #include <random>
 #include <cinttypes>
@@ -427,7 +428,7 @@ UDPTransport::Register(TransportReceiver *receiver,
         PPanic("Failed to register files");
     }
 
-    ret = add_recv(&ring_ctx, fdidx_map[fd]);
+    ret = add_recv(fdidx_map[fd]);
     if (ret < 0) {
         PPanic("Failed to add recv");
     }
@@ -508,7 +509,7 @@ UDPTransport::SendMessageInternal(TransportReceiver *src,
                                   bool multicast,
                                   const void *my_buf) {
     
-    return sendmsg_iouring(&ring_ctx, src, dst, m, my_buf);
+    return sendmsg_iouring(src, dst, m, my_buf);
 
     sockaddr_in sin = dynamic_cast<const UDPTransportAddress &>(dst).addr;
 
@@ -892,7 +893,7 @@ UDPTransport::RingCallback(evutil_socket_t fd, short what, void *arg)
     if (count == 0) {
         return;
     }
-    OnCompletion(ring_ctx, cqes, count);
+    OnCompletion(cqes, count);
     io_uring_cq_advance(ring, count);
 }
 
@@ -911,7 +912,7 @@ UDPTransport::setup_iouring(struct iouring_ctx *ring_ctx_ptr, int af, bool verbo
     
     memset(&params, 0, sizeof(params));
     params.cq_entries = QD * 8; // make the completion queue larger than the request queue
-    params.flags = IORING_SETUP_SUBMIT_ALL | IORING_SETUP_COOP_TASKRUN | IOURING_SETUP_CQSIZE; // IOURING_SETUP_CQSIZE in /liburing/src/include/liburing/io_uring.h
+    params.flags = IORING_SETUP_SUBMIT_ALL | IORING_SETUP_COOP_TASKRUN | IORING_SETUP_CQSIZE; // IOURING_SETUP_CQSIZE in /liburing/src/include/liburing/io_uring.h
     
     ret = io_uring_queue_init_params(QD, &(ring_ctx_ptr->ring), &params);
     if (ret < 0) {
@@ -941,7 +942,7 @@ UDPTransport::setup_buffer_pool(struct iouring_ctx *ring_ctx_ptr) {
     struct io_uring_buf_reg reg = {
         .ring_addr = 0,
         .ring_entries = BUFFERS,
-        .bdid = 0
+        .bgid = 0
     };
 
     ring_ctx_ptr->buf_ring_size = (buffer_size(ring_ctx_ptr) + sizeof(struct io_uring_buf)) * BUFFERS;
@@ -1038,7 +1039,7 @@ UDPTransport::process_cqe_recv(struct io_uring_cqe *cqe, int fdidx) {
     struct io_uring_recvmsg_out *recvmsg_out;
 
     if (!(cqe->flags & IORING_CQE_F_MORE)) {
-        ret = add_recv(ring_ctx_ptr, fdidx);
+        ret = add_recv(fdidx);
         if (ret) {
             PPanic("Failed to add recv");
             return ret;
