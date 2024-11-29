@@ -1277,5 +1277,8 @@ UDPTransport::sendmsg_iouring(
             
             ring_ctx_ptr->send_idx = (send_idx + 1) % ring_ctx_ptr->send_size;
         }
-    }               
+    }    
+
+    delete [] buf;
+    return true;           
 }
