@@ -1278,7 +1278,9 @@ UDPTransport::sendmsg_iouring(
             
             ring_ctx_ptr->send_idx = (send_idx + 1) % ring_ctx_ptr->send_size;
         }
-    }    
+    }
+
+    io_uring_submit(&ring_ctx_ptr->ring); // TODO: can we batch the sends?
 
     delete [] buf;
     return true;           
