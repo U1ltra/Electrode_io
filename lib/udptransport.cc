@@ -505,7 +505,7 @@ UDPTransport::SendMessageInternal(TransportReceiver *src,
                                   bool multicast,
                                   const void *my_buf) {
     
-    //return sendmsg_iouring(src, dst, m, my_buf);
+    return sendmsg_iouring(src, dst, m, my_buf);
 
     sockaddr_in sin = dynamic_cast<const UDPTransportAddress &>(dst).addr;
 
