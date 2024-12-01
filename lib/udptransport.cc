@@ -392,10 +392,10 @@ UDPTransport::Register(TransportReceiver *receiver,
     }
 
     // Set up a libevent callback
-    // event *ev = event_new(libeventBase, fd, EV_READ | EV_PERSIST,
-    //                       SocketCallback, (void *)this);
-    // event_add(ev, NULL);
-    // listenerEvents.push_back(ev);
+    event *ev = event_new(libeventBase, fd, EV_READ | EV_PERSIST,
+                          SocketCallback, (void *)this);
+    event_add(ev, NULL);
+    listenerEvents.push_back(ev);
 
     // Set up a libevent callback for io_uring
     // create a eventfd
@@ -429,14 +429,14 @@ UDPTransport::Register(TransportReceiver *receiver,
         PPanic("Failed to register files");
     }
 
-    ret = add_recv(&ring_ctx, fdidx_map[fd]);
-    if (ret < 0) {
-        PPanic("Failed to add recv");
-    }
+    // ret = add_recv(&ring_ctx, fdidx_map[fd]);
+    // if (ret < 0) {
+    //     PPanic("Failed to add recv");
+    // }
 
-    // submit the prepared io_uring recv multishot request
-    // rely on the eventfd to trigger the callback
-    io_uring_submit(&ring_ctx.ring);
+    // // submit the prepared io_uring recv multishot request
+    // // rely on the eventfd to trigger the callback
+    // io_uring_submit(&ring_ctx.ring);
 
     // Tell the receiver its address
     socklen_t sinsize = sizeof(sin);
@@ -1015,7 +1015,12 @@ UDPTransport::process_cqe_send(struct iouring_ctx *ring_ctx_ptr, struct io_uring
     // send completion
 
     int send_idx = cqe->user_data & FDIDX_MASK;
+
+    char *buf = (char *)ring_ctx_ptr->send[send_idx].iov.iov_base;
+    delete [] buf;
+
     if (cqe->res < 0) {
+        fprintf(stderr, "bad send %s\n", strerror(-cqe->res));
         PPanic("sendmsg failed with %d", cqe->res);
         return -1;
     }
@@ -1283,6 +1288,5 @@ UDPTransport::sendmsg_iouring(
 
     io_uring_submit(&ring_ctx_ptr->ring); // TODO: can we batch the sends?
 
-    delete [] buf;
     return true;           
 }
