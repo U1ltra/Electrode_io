@@ -431,7 +431,7 @@ UDPTransport::Register(TransportReceiver *receiver,
 
     // submit the prepared io_uring recv multishot request
     // rely on the eventfd to trigger the callback
-    io_uring_submit(&ring_ctx.ring);=
+    io_uring_submit(&ring_ctx.ring);
 
     // Tell the receiver its address
     socklen_t sinsize = sizeof(sin);
