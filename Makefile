@@ -22,7 +22,7 @@ CFLAGS += -Wno-unused-variable
 
 # CXXFLAGS := -std=c++0x
 override CXXFLAGS += -std=c++0x
-LDFLAGS := -levent_pthreads -ldl   -L$(LIBBPF_PATH) -l:libbpf.a -lelf $(USER_LIBS) -lz
+LDFLAGS := -levent_pthreads -ldl -luring  -L$(LIBBPF_PATH) -l:libbpf.a -lelf $(USER_LIBS) -lz
 ## Debian package: check
 # CHECK_CFLAGS := $(shell pkg-config --cflags check)
 # CHECK_LDFLAGS := $(shell pkg-config --cflags --libs check)

@@ -37,6 +37,8 @@
 #include <google/protobuf/message.h>
 #include <event2/event.h>
 #include <event2/thread.h>
+#include <sys/eventfd.h>
+#include <sys/mman.h>
 
 #include <random>
 #include <cinttypes>
@@ -56,9 +58,28 @@ const int SOCKET_BUF_SIZE = 10485760;
 const uint64_t NONFRAG_MAGIC = 0x20050318;
 const uint64_t FRAG_MAGIC = 0x20101010;
 
+// higher 48 bits for fd index
+const uint64_t FDIDX_MASK = 0x0000FFFF;
+
 #define FAST_PAXOS_DATA_LEN 12
 
+#define QD 128
+#define BUF_SHIFT 12 // 4KB
+#define CQES (QD * 16)
+#define BUFFERS CQES
+#define CONTROLLEN 0
+
 using std::pair;
+
+static size_t buffer_size(struct iouring_ctx *ring_ctx_ptr)
+{
+	return 1U << ring_ctx_ptr->buf_shift;
+}
+
+static unsigned char *get_buffer(struct iouring_ctx *ring_ctx_ptr, int idx)
+{
+	return ring_ctx_ptr->buffer_base + (idx << ring_ctx_ptr->buf_shift);
+}
 
 UDPTransportAddress::UDPTransportAddress(const sockaddr_in &addr)
     : addr(addr)
@@ -224,6 +245,11 @@ UDPTransport::UDPTransport(double dropRate, double reorderRate,
     for (event *x : signalEvents) {
         event_add(x, NULL);
     }
+
+    if (setup_iouring(&ring_ctx, AF_INET, false, BUF_SHIFT)) {
+        PPanic("Failed to setup io_uring");
+    }
+
 }
 
 UDPTransport::~UDPTransport()
@@ -233,6 +259,11 @@ UDPTransport::~UDPTransport()
     // for (auto kv : timers) {
     //     delete kv.second;
     // }
+
+    // free io_uring
+    struct io_uring *ring = &(ring_ctx.ring);
+    io_uring_unregister_eventfd(ring);
+    io_uring_queue_exit(ring);
 
 }
 
@@ -359,12 +390,48 @@ UDPTransport::Register(TransportReceiver *receiver,
         // Registering a client. Bind to any available host/port
         BindToPort(fd, "", "any");        
     }
+    
 
-    // Set up a libevent callback
-    event *ev = event_new(libeventBase, fd, EV_READ | EV_PERSIST,
-                          SocketCallback, (void *)this);
-    event_add(ev, NULL);
-    listenerEvents.push_back(ev);
+    // Set up a libevent callback for io_uring
+    // create a eventfd
+    int event_fd = eventfd(0, EFD_NONBLOCK);
+    if (event_fd < 0) {
+        PPanic("Failed to create eventfd");
+    }
+    // register the eventfd to io_uring
+    if (io_uring_register_eventfd(&(ring_ctx.ring), event_fd) < 0) {
+        PPanic("Failed to register eventfd");
+    }
+    // set up a libevent callback for the eventfd
+    event *ev_eventfd = event_new(libeventBase, event_fd, EV_READ | EV_PERSIST,
+                                  RingCallback, (void *)this);
+    event_add(ev_eventfd, NULL);
+    listenerEvents.push_back(ev_eventfd);
+
+    int ret;
+    int *fd_ptr = (int *)malloc(sizeof(int) * (idxfd_map.size() + 1));
+    for (size_t i = 0; i < idxfd_map.size(); i++) {
+        fd_ptr[i] = idxfd_map[i];
+    }
+
+    fd_ptr[idxfd_map.size()] = fd;
+    fdidx_map[fd] = idxfd_map.size();
+    idxfd_map[idxfd_map.size()] = fd;
+    
+    // add the new fd to the io_uring
+    ret = io_uring_register_files(&ring_ctx.ring, fd_ptr, idxfd_map.size());
+    if (ret < 0) {
+        PPanic("Failed to register files");
+    }
+
+    ret = add_recv(&ring_ctx, fdidx_map[fd]);
+    if (ret < 0) {
+        PPanic("Failed to add recv");
+    }
+
+    // submit the prepared io_uring recv multishot request
+    // rely on the eventfd to trigger the callback
+    io_uring_submit(&ring_ctx.ring);=
 
     // Tell the receiver its address
     socklen_t sinsize = sizeof(sin);
@@ -437,6 +504,9 @@ UDPTransport::SendMessageInternal(TransportReceiver *src,
                                   const Message &m,
                                   bool multicast,
                                   const void *my_buf) {
+    
+    return sendmsg_iouring(src, dst, m, my_buf);
+
     sockaddr_in sin = dynamic_cast<const UDPTransportAddress &>(dst).addr;
 
     // Serialize message
@@ -534,7 +604,7 @@ UDPTransport::OnReadable(int fd)
         socklen_t senderSize = sizeof(sender);
         
         sz = recvfrom(fd, buf, BUFSIZE, 0,
-                      (struct sockaddr *) &sender, &senderSize);
+                      (struct sockaddr *) &sender, &senderSize); // blocking
         if (sz == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 break;
@@ -588,7 +658,7 @@ UDPTransport::OnReadable(int fd)
                 Warning("Fragments out of order for packet %" PRIx64 "; "
                         "expected start %zd, got %zd",
                         msgId, info.data.size(), fragStart);
-                continue;
+                continue; 
             }
             
             info.data.append(string(ptr, buf+sz-ptr));
@@ -598,7 +668,7 @@ UDPTransport::OnReadable(int fd)
                 info.msgId = 0;
                 info.data.clear();
             } else {
-                continue;
+                continue; // continue to receive the next fragment and deliver until full packet is reassembled.
             }
         } else {
             Warning("Received packet with bad magic number");
@@ -783,4 +853,441 @@ UDPTransport::SignalCallback(evutil_socket_t fd, short what, void *arg)
     Notice("Terminating on SIGTERM/SIGINT");
     UDPTransport *transport = (UDPTransport *)arg;
     event_base_loopbreak(transport->libeventBase);
+}
+
+void
+UDPTransport::OnCompletion(struct iouring_ctx *ring_ctx_ptr, struct io_uring_cqe **cqe_ptrs, int count) 
+{
+    //TODO
+    for (int i = 0; i < count; i++) {
+        if ((cqe_ptrs[i]->user_data & FDIDX_MASK) < BUFFERS) {
+            if (process_cqe_send(ring_ctx_ptr, cqe_ptrs[i])) {
+                PPanic("Failed to process send cqe");
+            }
+        }
+        else{
+        // user_data << 16 is the fdidx for the socket
+            if (process_cqe_recv(
+                ring_ctx_ptr, cqe_ptrs[i], cqe_ptrs[i]->user_data >> 16
+                )) { 
+                PPanic("Failed to process recv cqe");
+            }
+        }
+    }
+}
+
+void
+UDPTransport::RingCallback(evutil_socket_t fd, short what, void *arg)
+{
+    UDPTransport *transport = (UDPTransport *)arg;
+    struct iouring_ctx *ring_ctx_ptr = &(transport->ring_ctx);
+    struct io_uring_cqe *cqes[CQES];
+    int ret;
+    unsigned int count;
+    struct io_uring *ring = &(ring_ctx_ptr->ring);
+
+    count = io_uring_peek_batch_cqe(ring, &cqes[0], CQES);
+    if (count == 0) {
+        return;
+    }
+    transport->OnCompletion(ring_ctx_ptr, cqes, count);
+    io_uring_cq_advance(ring, count);
+}
+
+int
+UDPTransport::setup_iouring(struct iouring_ctx *ring_ctx_ptr, int af, bool verbose, int buf_shift)
+{
+    memset(ring_ctx_ptr, 0, sizeof(*ring_ctx_ptr));
+    ring_ctx_ptr->verbose = verbose;
+    ring_ctx_ptr->af = af;
+    ring_ctx_ptr->buf_shift = buf_shift;
+    ring_ctx_ptr->send_size = BUFFERS;
+    ring_ctx_ptr->send = (struct sendmsg_ctx *)malloc(sizeof(struct sendmsg_ctx) * ring_ctx_ptr->send_size);
+
+    struct io_uring_params params;
+    int ret;
+    
+    memset(&params, 0, sizeof(params));
+    params.cq_entries = QD * 8; // make the completion queue larger than the request queue
+    params.flags = IORING_SETUP_SUBMIT_ALL | IORING_SETUP_COOP_TASKRUN | IORING_SETUP_CQSIZE; // IOURING_SETUP_CQSIZE in /liburing/src/include/liburing/io_uring.h
+    
+    ret = io_uring_queue_init_params(QD, &(ring_ctx_ptr->ring), &params);
+    if (ret < 0) {
+        PPanic("Failed to initialize io_uring\nNB: This requires a kernel version >= 6.0\n");
+        return ret;
+    }
+
+    // TODO
+    ret = setup_buffer_pool(ring_ctx_ptr);
+    if (ret < 0) {
+        PPanic("Failed to setup buffer pool");
+        io_uring_queue_exit(&(ring_ctx_ptr->ring));
+        return ret;
+    }
+    
+    memset(&(ring_ctx_ptr->msg), 0, sizeof(struct msghdr));
+    ring_ctx_ptr->msg.msg_namelen = sizeof(struct sockaddr_storage);
+    ring_ctx_ptr->msg.msg_controllen = CONTROLLEN;
+
+    return ret;
+}
+
+int 
+UDPTransport::setup_buffer_pool(struct iouring_ctx *ring_ctx_ptr) {
+    int ret, i;
+    void *mapped;
+    struct io_uring_buf_reg reg = {
+        .ring_addr = 0,
+        .ring_entries = BUFFERS,
+        .bgid = 0
+    };
+
+    ring_ctx_ptr->buf_ring_size = (buffer_size(ring_ctx_ptr) + sizeof(struct io_uring_buf)) * BUFFERS;
+    mapped = mmap(NULL, ring_ctx_ptr->buf_ring_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
+    if (mapped == MAP_FAILED) {
+        PPanic("Failed to mmap buffer ring");
+        return -1;
+    }
+    ring_ctx_ptr->buf_ring = (struct io_uring_buf_ring *)mapped;
+    io_uring_buf_ring_init(ring_ctx_ptr->buf_ring);
+
+    reg = (struct io_uring_buf_reg){
+        .ring_addr = (unsigned long)ring_ctx_ptr->buf_ring,
+        .ring_entries = BUFFERS,
+        .bgid = 0
+    };
+
+    ring_ctx_ptr->buffer_base = (unsigned char *)ring_ctx_ptr->buf_ring + sizeof(struct io_uring_buf) * BUFFERS;
+
+    ret = io_uring_register_buf_ring(&ring_ctx_ptr->ring, &reg, 0);
+    if (ret) {
+        PPanic("Failed to register buffers");
+        return ret;
+    }
+
+    for (i = 0; i < BUFFERS; i++) {
+        io_uring_buf_ring_add(
+            ring_ctx_ptr->buf_ring, 
+            get_buffer(ring_ctx_ptr, i), 
+            buffer_size(ring_ctx_ptr), 
+            i, 
+            io_uring_buf_ring_mask(BUFFERS), 
+            i
+        );
+    }
+    io_uring_buf_ring_advance(ring_ctx_ptr->buf_ring, BUFFERS);
+
+    return 0;
+}
+
+int UDPTransport::add_recv(struct iouring_ctx *ring_ctx_ptr, int fdidx) {
+    struct io_uring_sqe *sqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(&(ring_ctx_ptr->ring));
+    if (!sqe) {
+        io_uring_submit(&(ring_ctx_ptr->ring));
+        sqe = io_uring_get_sqe(&(ring_ctx_ptr->ring));
+    }
+    if (!sqe) {
+        return -1;
+    }
+
+    io_uring_prep_recvmsg_multishot(sqe, fdidx, &ring_ctx_ptr->msg, MSG_TRUNC);
+    sqe->flags |= IOSQE_FIXED_FILE;
+    sqe->flags |= IOSQE_BUFFER_SELECT;
+    sqe->buf_group = 0;
+
+    // store the buffer index in the high 16 bits of the user data
+    uint64_t user_data = (((uint64_t)fdidx) << 16) | (BUFFERS + 1);
+    sqe->user_data = user_data;
+
+    return 0;
+}
+
+int
+UDPTransport::process_cqe_send(struct iouring_ctx *ring_ctx_ptr, struct io_uring_cqe *cqe) {
+    // send completion
+
+    int send_idx = cqe->user_data & FDIDX_MASK;
+
+    char *buf = (char *)ring_ctx_ptr->send[send_idx].iov.iov_base;
+    delete [] buf;
+
+    if (cqe->res < 0) {
+        fprintf(stderr, "bad send %s\n", strerror(-cqe->res));
+        PPanic("sendmsg failed with %d", cqe->res);
+        return -1;
+    }
+    if ((size_t) cqe->res != ring_ctx_ptr->send[send_idx].iov.iov_len) {
+        PPanic("sendmsg failed to send all bytes %d != %zu", cqe->res, ring_ctx_ptr->send[send_idx].iov.iov_len);
+        return -1;
+    }
+
+    return 0;
+}
+
+int
+UDPTransport::process_cqe_recv(struct iouring_ctx *ring_ctx_ptr, struct io_uring_cqe *cqe, int fdidx) {
+    // recv completion, handle fragmentation and deliver
+
+    // handling io_uring recvmsg completion to prepare for delivery //
+    int ret, idx;
+    struct io_uring_recvmsg_out *recvmsg_out;
+
+    if (!(cqe->flags & IORING_CQE_F_MORE)) {
+        ret = add_recv(ring_ctx_ptr, fdidx);
+        if (ret) {
+            PPanic("Failed to add recv");
+            return ret;
+        }
+    }
+
+    if (cqe->res == -ENOBUFS) { 
+        return 0;
+    }
+
+    // for completions using io_uring buffer, 
+    // IORING_CQE_F_BUFFER is set to indicate success
+    // and also indicating that the buffer index is stored in the high 16 bits of the flags
+    if (!(cqe->flags & IORING_CQE_F_BUFFER) || cqe->res < 0) {
+        PPanic("recvmsg failed with %d", cqe->res);
+        if (cqe->res == -EFAULT || cqe->res == -EINVAL) {
+            PPanic("NB: This requires a kernel version >= 6.0");
+        }
+        return -1;
+    }
+
+    idx = cqe->flags >> 16; // get the buffer index
+
+    recvmsg_out = io_uring_recvmsg_validate(get_buffer(ring_ctx_ptr, idx), cqe->res, &ring_ctx_ptr->msg);
+    if (!recvmsg_out) {
+        PPanic("Failed to validate recvmsg");
+        return -1;
+    }
+    if (recvmsg_out->namelen > ring_ctx_ptr->msg.msg_namelen) {
+        PPanic("truncate address name");
+    }
+    if (recvmsg_out->flags & MSG_TRUNC) {
+        unsigned int r;
+        r = io_uring_recvmsg_payload_length(recvmsg_out, cqe->res, &ring_ctx_ptr->msg);
+        PPanic("truncated msg need %u received %u", recvmsg_out->payloadlen, r);
+    }
+
+    if (ring_ctx_ptr->verbose) {
+        struct sockaddr_in *addr = (sockaddr_in *) io_uring_recvmsg_name(recvmsg_out);
+        struct sockaddr_in6 *addr6 = (sockaddr_in6 *)addr;
+        char buf[INET6_ADDRSTRLEN + 1];
+        const char *name;
+        void *addrp;
+
+        if (ring_ctx_ptr->af == AF_INET) {
+            addrp = &addr->sin_addr;
+        } else {
+            addrp = &addr6->sin6_addr;
+        }
+        name = inet_ntop(ring_ctx_ptr->af, addrp, buf, sizeof(buf));
+        if (!name) {
+            name = "<INVALID>";
+        }
+
+        fprintf(stderr, "received %u bytes %d from [%s]:%d\n",
+			io_uring_recvmsg_payload_length(
+                recvmsg_out, cqe->res, &ring_ctx_ptr->msg),
+			recvmsg_out->namelen, name, (int)ntohs(addr->sin_port));
+    }
+
+    // process the received message //
+    void *pack_payload = io_uring_recvmsg_payload(recvmsg_out, &ring_ctx_ptr->msg);
+    size_t pack_len = io_uring_recvmsg_payload_length(recvmsg_out, cqe->res, &ring_ctx_ptr->msg);
+
+    string msgType, msg;
+    sockaddr_in *sender = (sockaddr_in *)io_uring_recvmsg_name(recvmsg_out);
+    ret = assemble_frag(pack_payload, pack_len, sender, msgType, msg);
+    if (ret == 0) {
+        int fd = idxfd_map[fdidx];
+        UDPTransportAddress senderAddr(*sender);
+        TransportReceiver *receiver = receivers[fd];
+        receiver->ReceiveMessage(senderAddr, msgType, msg);
+    }
+
+    recycle_buffer(ring_ctx_ptr, idx);
+
+    return 0;
+}
+
+int UDPTransport::assemble_frag(void *pack_payload, size_t pack_len, sockaddr_in *sender, string &msgType, string &msg) {
+    ASSERT(pack_len > 0);
+    ASSERT(sizeof(uint32_t) - pack_len > 0);
+
+    char *buf = (char *)pack_payload;
+    UDPTransportAddress senderAddr(*sender);
+
+    uint32_t magic = *(uint32_t*)buf;
+    if (magic == NONFRAG_MAGIC) {
+        DecodePacket(buf+sizeof(uint32_t), pack_len-sizeof(uint32_t), msgType, msg);
+        return 0; // ready to deliver
+    } else if (magic == FRAG_MAGIC) {
+        const char *ptr = buf;
+        ptr += sizeof(uint32_t);
+        ASSERT(ptr-buf < pack_len);
+        uint64_t msgId = *((uint64_t *)ptr);
+        ptr += sizeof(uint64_t);
+        ASSERT(ptr-buf < pack_len);
+        size_t fragStart = *((size_t *)ptr);
+        ptr += sizeof(size_t);
+        ASSERT(ptr-buf < pack_len);
+        size_t msgLen = *((size_t *)ptr);
+        ptr += sizeof(size_t);
+        ASSERT(ptr-buf < pack_len);
+        ASSERT(buf+pack_len-ptr == (ssize_t) std::min(msgLen-fragStart,
+                                                    MAX_UDP_MESSAGE_SIZE));
+        Notice("Received fragment of %zd byte packet %" PRIx64 " starting at %zd",
+                msgLen, msgId, fragStart);
+        UDPTransportFragInfo &info = fragInfo[senderAddr];
+        if (info.msgId == 0) {
+            info.msgId = msgId;
+            info.data.clear();
+        }
+        if (info.msgId != msgId) {
+            ASSERT(msgId > info.msgId);
+            Warning("Failed to reconstruct packet %" PRIx64 "", info.msgId);
+            info.msgId = msgId;
+            info.data.clear();
+        }
+        
+        if (fragStart != info.data.size()) {
+            Warning("Fragments out of order for packet %" PRIx64 "; "
+                    "expected start %zd, got %zd",
+                    msgId, info.data.size(), fragStart);
+            return -1; // drop the out-of-order fragment
+        }
+        
+        info.data.append(string(ptr, buf+pack_len-ptr));
+        if (info.data.size() == msgLen) {
+            Debug("Completed packet reconstruction");
+            DecodePacket(info.data.c_str(), info.data.size(), msgType, msg);
+            info.msgId = 0;
+            info.data.clear();
+            return 0; // ready to deliver
+        } 
+    } else {
+        Warning("Received packet with bad magic number");
+    }
+
+    return -1; // not ready to deliver
+}
+
+void 
+UDPTransport::recycle_buffer(struct iouring_ctx *ring_ctx, int idx) {
+    io_uring_buf_ring_add(
+        ring_ctx->buf_ring, 
+        get_buffer(ring_ctx, idx), 
+        buffer_size(ring_ctx), 
+        idx, 
+        io_uring_buf_ring_mask(BUFFERS), 
+        0
+    );
+    io_uring_buf_ring_advance(ring_ctx->buf_ring, 1);
+}
+
+bool
+UDPTransport::sendmsg_iouring(
+    TransportReceiver *src, 
+    const UDPTransportAddress &dst, 
+    const Message &m, 
+    const void *my_buf
+) {
+    struct iouring_ctx *ring_ctx_ptr = &ring_ctx;
+    sockaddr_in sin = dynamic_cast<const UDPTransportAddress &>(dst).addr;
+
+    char *buf;
+    size_t msgLen = SerializeMessage(m, &buf, my_buf);
+
+    int fd = fds[src];
+    int fdidx = fdidx_map[fd];
+    int send_idx = ring_ctx_ptr->send_idx; // TODO: there could be race conditions here
+                                           // if there are plenty of sends in flight
+                                           // and the completion handler doesn't keep up
+                                           // This could overwrite a send that hasn't completed
+                                           // Simple fix by enlarging the send buffer for now...
+    
+    struct io_uring_sqe *sqe;
+    sqe = io_uring_get_sqe(&ring_ctx_ptr->ring);
+    if (!sqe) {
+        io_uring_submit(&ring_ctx_ptr->ring);
+        sqe = io_uring_get_sqe(&ring_ctx_ptr->ring);
+    }
+    if (!sqe) {
+        return false;
+    }
+
+
+    if (msgLen <= MAX_UDP_MESSAGE_SIZE) {
+        ring_ctx_ptr->send[send_idx].iov = (struct iovec){
+            .iov_base = buf,
+            .iov_len = msgLen
+        };
+
+        ring_ctx_ptr->send[send_idx].msg.msg_name = &sin;
+        ring_ctx_ptr->send[send_idx].msg.msg_namelen = sizeof(sin);
+        ring_ctx_ptr->send[send_idx].msg.msg_iov = &ring_ctx_ptr->send[send_idx].iov;
+        ring_ctx_ptr->send[send_idx].msg.msg_iovlen = 1;
+        ring_ctx_ptr->send[send_idx].msg.msg_control = NULL;
+        ring_ctx_ptr->send[send_idx].msg.msg_controllen = 0;
+
+        io_uring_prep_sendmsg(sqe, fdidx, &ring_ctx_ptr->send[send_idx].msg, 0);
+        io_uring_sqe_set_data64(sqe, send_idx);
+        sqe->flags |= IOSQE_FIXED_FILE;
+        
+        ring_ctx_ptr->send_idx = (send_idx + 1) % ring_ctx_ptr->send_size;
+
+    } else {
+        msgLen -= sizeof(uint32_t);
+        char *bodyStart = buf + sizeof(uint32_t);
+        int numFrags = ((msgLen-1) / MAX_UDP_MESSAGE_SIZE) + 1;
+        Notice("Sending large %s message in %d fragments",
+               m.GetTypeName().c_str(), numFrags);
+        uint64_t msgId = ++lastFragMsgId;
+        for (size_t fragStart = 0; fragStart < msgLen;
+             fragStart += MAX_UDP_MESSAGE_SIZE) {
+            size_t fragLen = std::min(msgLen - fragStart,
+                                      MAX_UDP_MESSAGE_SIZE);
+            size_t fragHeaderLen = 2*sizeof(size_t) + sizeof(uint64_t) + sizeof(uint32_t);
+            char fragBuf[fragLen + fragHeaderLen];
+            char *ptr = fragBuf;
+            *((uint32_t *)ptr) = FRAG_MAGIC;
+            ptr += sizeof(uint32_t);
+            *((uint64_t *)ptr) = msgId;
+            ptr += sizeof(uint64_t);
+            *((size_t *)ptr) = fragStart;
+            ptr += sizeof(size_t);
+            *((size_t *)ptr) = msgLen;
+            ptr += sizeof(size_t);
+            memcpy(ptr, &bodyStart[fragStart], fragLen);
+            
+            ring_ctx_ptr->send[send_idx].iov = (struct iovec){
+                .iov_base = fragBuf,
+                .iov_len = fragLen + fragHeaderLen
+            };
+
+            ring_ctx_ptr->send[send_idx].msg.msg_name = &sin;
+            ring_ctx_ptr->send[send_idx].msg.msg_namelen = sizeof(sin);
+            ring_ctx_ptr->send[send_idx].msg.msg_iov = &ring_ctx_ptr->send[send_idx].iov;
+            ring_ctx_ptr->send[send_idx].msg.msg_iovlen = 1;
+            ring_ctx_ptr->send[send_idx].msg.msg_control = NULL;
+            ring_ctx_ptr->send[send_idx].msg.msg_controllen = 0;
+
+            io_uring_prep_sendmsg(sqe, fdidx, &ring_ctx_ptr->send[send_idx].msg, 0);
+            io_uring_sqe_set_data64(sqe, send_idx);
+            sqe->flags |= IOSQE_FIXED_FILE;
+            
+            ring_ctx_ptr->send_idx = (send_idx + 1) % ring_ctx_ptr->send_size;
+        }
+    }
+
+
+    io_uring_submit(&ring_ctx_ptr->ring); // TODO: can we batch the sends?
+
+    return true;           
 }
