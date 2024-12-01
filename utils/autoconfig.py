@@ -1,9 +1,9 @@
 
 # create a config.txt file and write the configuration to it
 config_template = '''f 1
-%s:12345
-%s:12345
-%s:12345'''
+replica %s:12345
+replica %s:12345
+replica %s:12345'''
 
 def write_config(ip1, ip2, ip3):
     with open("config.txt", "w") as f:
