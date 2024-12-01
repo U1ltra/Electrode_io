@@ -129,3 +129,23 @@ cd ~/Electrode_io/
 ## Known Issue
 Error `20241101-093256-3254 18489 * ResendPrepare   (replica.cc:480):   [0] Resending prepare`
 - Restart the experiment from `xdp-handler`. Kill the previous xdp-handler process in the background using `kill -2 $(cat pid.file)`
+
+Error `sudo ./fast <interface-name>` fails
+- If you fail to start the xdp-handler, and see log something like the following. (check log by `cat ~/Electrode_io/xdp-handler/nohup.out`)
+- **Terminate the cluster and re-configure one**
+- There should be other work-arounds but this is the solution I have been using
+```
+username@node0:~/Electrode_io/xdp-handler$ sudo ./fast enp65s0f0np0
+progname: fastPaxos
+progname: HandlePrepare
+progname: HandlePrepareOK
+progname: HandleRequest
+progname: WriteBuffer
+progname: PrepareFastReply
+progname: FastBroadCast
+libbpf: failed to pin program: File exists
+Error: Failed to pin program 'FastBroadCast' to path /sys/fs/bpf/FastBroadCast
+BPF program 'FastBroadCast' already pinned, unpinning it to reload it
+fast: fast_user.c:321: main: Assertion `bpf_obj_pin(map_prepare_buffer_fd, "/sys/fs/bpf/paxos_prepare_buffer") == 0' failed.
+Aborted
+```
