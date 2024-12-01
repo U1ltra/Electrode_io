@@ -50,6 +50,12 @@ make clean && make CXXFLAGS="-DTC_BROADCAST -DFAST_QUORUM_PRUNE -DFAST_REPLY"
 
 cd xdp-handler
 sudo ./fast <interface-name>
+
+cd xdp-handler
+nohup sudo ./fast <interface-name> &
+echo $! > pid.file
+
+# kill -2 $(cat pid.file)
 ```
 
 In new terminals:
