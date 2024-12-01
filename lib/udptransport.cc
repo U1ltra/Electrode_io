@@ -390,12 +390,7 @@ UDPTransport::Register(TransportReceiver *receiver,
         // Registering a client. Bind to any available host/port
         BindToPort(fd, "", "any");        
     }
-
-    // Set up a libevent callback
-    event *ev = event_new(libeventBase, fd, EV_READ | EV_PERSIST,
-                          SocketCallback, (void *)this);
-    event_add(ev, NULL);
-    listenerEvents.push_back(ev);
+    
 
     // Set up a libevent callback for io_uring
     // create a eventfd
@@ -429,14 +424,14 @@ UDPTransport::Register(TransportReceiver *receiver,
         PPanic("Failed to register files");
     }
 
-    // ret = add_recv(&ring_ctx, fdidx_map[fd]);
-    // if (ret < 0) {
-    //     PPanic("Failed to add recv");
-    // }
+    ret = add_recv(&ring_ctx, fdidx_map[fd]);
+    if (ret < 0) {
+        PPanic("Failed to add recv");
+    }
 
-    // // submit the prepared io_uring recv multishot request
-    // // rely on the eventfd to trigger the callback
-    // io_uring_submit(&ring_ctx.ring);
+    // submit the prepared io_uring recv multishot request
+    // rely on the eventfd to trigger the callback
+    io_uring_submit(&ring_ctx.ring);=
 
     // Tell the receiver its address
     socklen_t sinsize = sizeof(sin);
@@ -510,7 +505,7 @@ UDPTransport::SendMessageInternal(TransportReceiver *src,
                                   bool multicast,
                                   const void *my_buf) {
     
-    return sendmsg_iouring(src, dst, m, my_buf);
+    //return sendmsg_iouring(src, dst, m, my_buf);
 
     sockaddr_in sin = dynamic_cast<const UDPTransportAddress &>(dst).addr;
 
@@ -1029,7 +1024,6 @@ UDPTransport::process_cqe_send(struct iouring_ctx *ring_ctx_ptr, struct io_uring
         return -1;
     }
 
-    recycle_buffer(ring_ctx_ptr, send_idx);
     return 0;
 }
 
@@ -1055,6 +1049,7 @@ UDPTransport::process_cqe_recv(struct iouring_ctx *ring_ctx_ptr, struct io_uring
 
     // for completions using io_uring buffer, 
     // IORING_CQE_F_BUFFER is set to indicate success
+    // and also indicating that the buffer index is stored in the high 16 bits of the flags
     if (!(cqe->flags & IORING_CQE_F_BUFFER) || cqe->res < 0) {
         PPanic("recvmsg failed with %d", cqe->res);
         if (cqe->res == -EFAULT || cqe->res == -EINVAL) {
@@ -1115,6 +1110,8 @@ UDPTransport::process_cqe_recv(struct iouring_ctx *ring_ctx_ptr, struct io_uring
         TransportReceiver *receiver = receivers[fd];
         receiver->ReceiveMessage(senderAddr, msgType, msg);
     }
+
+    recycle_buffer(ring_ctx_ptr, idx);
 
     return 0;
 }
@@ -1209,7 +1206,11 @@ UDPTransport::sendmsg_iouring(
 
     int fd = fds[src];
     int fdidx = fdidx_map[fd];
-    int send_idx = ring_ctx_ptr->send_idx;
+    int send_idx = ring_ctx_ptr->send_idx; // TODO: there could be race conditions here
+                                           // if there are plenty of sends in flight
+                                           // and the completion handler doesn't keep up
+                                           // This could overwrite a send that hasn't completed
+                                           // Simple fix by enlarging the send buffer for now...
     
     struct io_uring_sqe *sqe;
     sqe = io_uring_get_sqe(&ring_ctx_ptr->ring);
