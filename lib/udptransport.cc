@@ -60,6 +60,7 @@ const uint64_t FRAG_MAGIC = 0x20101010;
 
 // higher 48 bits for fd index
 const uint64_t FDIDX_MASK = 0x0000FFFF;
+const int MAX_FDS = 32;
 
 #define FAST_PAXOS_DATA_LEN 12
 
@@ -391,37 +392,24 @@ UDPTransport::Register(TransportReceiver *receiver,
         BindToPort(fd, "", "any");        
     }
     
-
-    // Set up a libevent callback for io_uring
-    // create a eventfd
-    int event_fd = eventfd(0, EFD_NONBLOCK);
-    if (event_fd < 0) {
-        PPanic("Failed to create eventfd");
-    }
-    // register the eventfd to io_uring
-    if (io_uring_register_eventfd(&(ring_ctx.ring), event_fd) < 0) {
-        PPanic("Failed to register eventfd");
-    }
-    // set up a libevent callback for the eventfd
-    event *ev_eventfd = event_new(libeventBase, event_fd, EV_READ | EV_PERSIST,
-                                  RingCallback, (void *)this);
-    event_add(ev_eventfd, NULL);
-    listenerEvents.push_back(ev_eventfd);
-
     int ret;
-    int *fd_ptr = (int *)malloc(sizeof(int) * (idxfd_map.size() + 1));
-    for (size_t i = 0; i < idxfd_map.size(); i++) {
-        fd_ptr[i] = idxfd_map[i];
-    }
-
-    fd_ptr[idxfd_map.size()] = fd;
     fdidx_map[fd] = idxfd_map.size();
     idxfd_map[idxfd_map.size()] = fd;
     
     // add the new fd to the io_uring
-    ret = io_uring_register_files(&ring_ctx.ring, fd_ptr, idxfd_map.size());
+    ASSERT(fdidx_map[fd] < MAX_FDS);
+    ret = io_uring_register_files_update(&ring_ctx.ring, fdidx_map[fd], &fd, 1);
     if (ret < 0) {
-        PPanic("Failed to register files");
+        // Additional debug info
+        fprintf(stderr, "Updating with fd: %d at index: %zu\n", fd, idxfd_map.size() - 1);
+        fprintf(stderr, "fdidx_map[fd]: %d\n", fdidx_map[fd]);
+        fprintf(stderr, "Current registered fds: ");
+        for (size_t i = 0; i < idxfd_map.size() - 1; i++) {
+            fprintf(stderr, "%d ", idxfd_map[i]);
+        }
+        fprintf(stderr, "\n");
+        PPanic("Failed to update registered files: %s (ret=%d, errno=%d)", 
+            strerror(abs(ret)), ret, errno);
     }
 
     ret = add_recv(&ring_ctx, fdidx_map[fd]);
@@ -928,6 +916,36 @@ UDPTransport::setup_iouring(struct iouring_ctx *ring_ctx_ptr, int af, bool verbo
     memset(&(ring_ctx_ptr->msg), 0, sizeof(struct msghdr));
     ring_ctx_ptr->msg.msg_namelen = sizeof(struct sockaddr_storage);
     ring_ctx_ptr->msg.msg_controllen = CONTROLLEN;
+
+    // Set up a libevent callback for io_uring
+    // create a eventfd
+    int event_fd = eventfd(0, EFD_NONBLOCK);
+    if (event_fd < 0) {
+        PPanic("Failed to create eventfd");
+    }
+    // register the eventfd to io_uring
+    ret = io_uring_register_eventfd(&(ring_ctx.ring), event_fd);
+    if (ret < 0) {
+        PPanic("Failed to register eventfd: %s", strerror(-ret));
+    } else if (ret == 0) {
+        // Success case
+        fprintf(stderr, "Successfully registered eventfd\n"); 
+    }
+    // set up a libevent callback for the eventfd
+    event *ev_eventfd = event_new(libeventBase, event_fd, EV_READ | EV_PERSIST,
+                                RingCallback, (void *)this);
+    event_add(ev_eventfd, NULL);
+    listenerEvents.push_back(ev_eventfd);
+
+
+    // register initial file descriptors, MAX_FDS is the maximum number of file descriptors
+    // that can be registered with io_uring
+    int *fd_ptr = (int *)malloc(sizeof(int) * MAX_FDS);
+    // init with -1
+    for (int i = 0; i < MAX_FDS; i++) {
+        fd_ptr[i] = -1;
+    }
+    ret = io_uring_register_files(&(ring_ctx.ring), fd_ptr, MAX_FDS);
 
     return ret;
 }

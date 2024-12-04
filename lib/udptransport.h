@@ -172,7 +172,7 @@ private:
 
     void OnCompletion(struct iouring_ctx *ring_ctx_ptr, struct io_uring_cqe **cqe, int count);
     static void RingCallback(evutil_socket_t fd, short what, void *arg);
-    static int setup_iouring(struct iouring_ctx *ring_ctx_ptr, int af, bool verbose, int buf_shift);
+    int setup_iouring(struct iouring_ctx *ring_ctx_ptr, int af, bool verbose, int buf_shift);
     static int setup_buffer_pool(struct iouring_ctx *ring_ctx);
     int add_recv(struct iouring_ctx *ring_ctx_ptr, int fd);
     int process_cqe_send(struct iouring_ctx *ring_ctx_ptr, struct io_uring_cqe *cqe);
