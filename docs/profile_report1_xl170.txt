@@ -1,0 +1,863 @@
+io_uring
+3 replicas
+10000 requests
+
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 73K of event 'cycles'
+# Event count (approx.): 61307230094
+#
+# Overhead  Command  Shared Object                                   Symbol                                                                                                                                                                                                                                                                                                                                                                                                                                      
+# ........  .......  ..............................................  ............................................................................................................................................................................................................................................................................................................................................................................................................................................
+#
+    26.76%  replica  [kernel.kallsyms]                               [k] syscall_exit_to_user_mode
+            |          
+             --26.60%--syscall_exit_to_user_mode
+                       |          
+                       |--25.44%--do_syscall_64
+                       |          entry_SYSCALL_64_after_hwframe
+                       |          |          
+                       |           --25.40%--__res_context_search
+                       |                     0x55b83bd7f990
+                       |                     0x7f5ef1036600
+                       |                     0x6c
+                       |          
+                        --1.17%--entry_SYSCALL_64_after_hwframe
+                                  |          
+                                   --1.16%--__res_context_search
+                                             0x55b83bd7f990
+                                             0x7f5ef1036600
+                                             0x6c
+
+     9.14%  replica  [kernel.kallsyms]                               [k] __entry_text_start
+            |          
+            |--7.70%--__entry_text_start
+            |          |          
+            |           --7.69%--__res_context_search
+            |                     0x55b83bd7f990
+            |                     0x7f5ef1036600
+            |                     0x6c
+            |          
+             --1.45%--entry_SYSCALL_64_safe_stack
+                       |          
+                        --1.44%--__res_context_search
+                                  0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     9.13%  replica  [kernel.kallsyms]                               [k] syscall_return_via_sysret
+            |          
+             --8.88%--syscall_return_via_sysret
+                       |          
+                        --8.87%--__res_context_search
+                                  0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     4.76%  replica  [kernel.kallsyms]                               [k] ep_send_events
+            |          
+             --4.44%--ep_send_events
+                       |          
+                        --3.97%--ep_poll
+                                  do_epoll_wait
+                                  __x64_sys_epoll_wait
+                                  do_syscall_64
+                                  entry_SYSCALL_64_after_hwframe
+                                  __res_context_search
+                                  0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     2.91%  replica  [kernel.kallsyms]                               [k] ktime_get_ts64
+            |          
+             --2.91%--ktime_get_ts64
+                       |          
+                       |--1.43%--__x64_sys_epoll_wait
+                       |          do_syscall_64
+                       |          entry_SYSCALL_64_after_hwframe
+                       |          __res_context_search
+                       |          0x55b83bd7f990
+                       |          0x7f5ef1036600
+                       |          0x6c
+                       |          
+                        --1.06%--select_estimate_accuracy
+                                  ep_poll
+                                  do_epoll_wait
+                                  __x64_sys_epoll_wait
+                                  do_syscall_64
+                                  entry_SYSCALL_64_after_hwframe
+                                  __res_context_search
+                                  0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     2.29%  replica  [kernel.kallsyms]                               [k] ep_poll
+            |          
+             --2.12%--ep_poll
+                       |          
+                        --1.96%--do_epoll_wait
+                                  __x64_sys_epoll_wait
+                                  do_syscall_64
+                                  entry_SYSCALL_64_after_hwframe
+                                  __res_context_search
+                                  0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     2.25%  replica  [kernel.kallsyms]                               [k] select_estimate_accuracy
+            |          
+             --2.14%--select_estimate_accuracy
+                       |          
+                        --2.07%--ep_poll
+                                  do_epoll_wait
+                                  __x64_sys_epoll_wait
+                                  do_syscall_64
+                                  entry_SYSCALL_64_after_hwframe
+                                  __res_context_search
+                                  0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     2.23%  replica  [kernel.kallsyms]                               [k] entry_SYSCALL_64_after_hwframe
+            |          
+             --2.09%--entry_SYSCALL_64_after_hwframe
+                       |          
+                        --2.09%--__res_context_search
+                                  0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     1.94%  replica  libc.so.6                                       [.] __strncpy_sse2_unaligned
+            |          
+             --1.93%--__strncpy_sse2_unaligned
+                       |          
+                        --1.22%--0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     1.82%  replica  [kernel.kallsyms]                               [k] __x64_sys_epoll_wait
+            |          
+             --1.71%--__x64_sys_epoll_wait
+                       |          
+                        --1.24%--do_syscall_64
+                                  entry_SYSCALL_64_after_hwframe
+                                  __res_context_search
+                                  0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     1.81%  replica  libevent-2.1.so.7.0.1                           [.] event_base_loop
+            |          
+             --1.57%--event_base_loop
+
+     1.57%  replica  [kernel.kallsyms]                               [k] entry_SYSRETQ_unsafe_stack
+            |          
+             --1.52%--__res_context_search
+                       0x55b83bd7f990
+                       0x7f5ef1036600
+                       0x6c
+
+     1.55%  replica  [kernel.kallsyms]                               [k] read_tsc
+            |
+            ---read_tsc
+               |          
+                --1.49%--__x64_sys_epoll_wait
+                          do_syscall_64
+                          entry_SYSCALL_64_after_hwframe
+                          __res_context_search
+                          0x55b83bd7f990
+                          0x7f5ef1036600
+                          0x6c
+
+     1.46%  replica  [kernel.kallsyms]                               [k] _raw_write_lock_irq
+            |
+            ---_raw_write_lock_irq
+               |          
+               |--0.77%--ep_done_scan
+               |          ep_send_events
+               |          ep_poll
+               |          do_epoll_wait
+               |          __x64_sys_epoll_wait
+               |          do_syscall_64
+               |          entry_SYSCALL_64_after_hwframe
+               |          __res_context_search
+               |          0x55b83bd7f990
+               |          0x7f5ef1036600
+               |          0x6c
+               |          
+                --0.54%--ep_send_events
+                          ep_poll
+                          do_epoll_wait
+                          __x64_sys_epoll_wait
+                          do_syscall_64
+                          entry_SYSCALL_64_after_hwframe
+                          __res_context_search
+                          0x55b83bd7f990
+                          0x7f5ef1036600
+                          0x6c
+
+     1.44%  replica  [kernel.kallsyms]                               [k] ep_done_scan
+            |          
+             --1.10%--ep_done_scan
+                       |          
+                        --0.97%--ep_send_events
+                                  ep_poll
+                                  do_epoll_wait
+                                  __x64_sys_epoll_wait
+                                  do_syscall_64
+                                  entry_SYSCALL_64_after_hwframe
+                                  __res_context_search
+                                  0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     1.35%  replica  [kernel.kallsyms]                               [k] __put_user_nocheck_8
+            |          
+             --1.00%--__put_user_nocheck_8
+                       ep_poll
+                       do_epoll_wait
+                       __x64_sys_epoll_wait
+                       do_syscall_64
+                       entry_SYSCALL_64_after_hwframe
+                       __res_context_search
+                       0x55b83bd7f990
+                       0x7f5ef1036600
+                       0x6c
+
+     1.32%  replica  replica                                         [.] UDPTransport::RingCallback
+            |          
+             --0.94%--UDPTransport::RingCallback
+
+     1.18%  replica  liburing.so.2.9                                 [.] io_uring_peek_batch_cqe
+            |
+            ---io_uring_peek_batch_cqe
+               |          
+                --0.55%--0x55b83bd70ef0
+                          UDPTransport::~UDPTransport
+                          0xa78d4c54410009f0
+
+     1.17%  replica  [kernel.kallsyms]                               [k] do_syscall_64
+            |          
+             --0.96%--do_syscall_64
+                       |          
+                        --0.84%--entry_SYSCALL_64_after_hwframe
+                                  |          
+                                   --0.84%--__res_context_search
+                                             0x55b83bd7f990
+                                             0x7f5ef1036600
+                                             0x6c
+
+     1.16%  replica  [kernel.kallsyms]                               [k] timespec64_add_safe
+            |
+            ---timespec64_add_safe
+               |          
+               |--0.65%--do_syscall_64
+               |          entry_SYSCALL_64_after_hwframe
+               |          __res_context_search
+               |          0x55b83bd7f990
+               |          0x7f5ef1036600
+               |          0x6c
+               |          
+                --0.51%--__x64_sys_epoll_wait
+                          do_syscall_64
+                          entry_SYSCALL_64_after_hwframe
+                          __res_context_search
+                          0x55b83bd7f990
+                          0x7f5ef1036600
+                          0x6c
+
+     1.15%  replica  libevent-2.1.so.7.0.1                           [.] event_callback_activate_nolock_
+            |          
+             --1.10%--event_callback_activate_nolock_
+                       |          
+                        --0.79%--0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     1.11%  replica  libevent-2.1.so.7.0.1                           [.] event_active_nolock_
+            |          
+             --1.06%--event_active_nolock_
+                       |          
+                        --0.78%--0x55b83bd7f2e0
+
+     1.11%  replica  [kernel.kallsyms]                               [k] do_epoll_wait
+            |          
+             --1.09%--do_epoll_wait
+                       |          
+                        --0.97%--__x64_sys_epoll_wait
+                                  do_syscall_64
+                                  entry_SYSCALL_64_after_hwframe
+                                  __res_context_search
+                                  0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     1.00%  replica  [kernel.kallsyms]                               [k] syscall_enter_from_user_mode
+            |          
+             --1.00%--syscall_enter_from_user_mode
+                       |          
+                        --0.52%--entry_SYSCALL_64_after_hwframe
+                                  __res_context_search
+                                  0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     0.96%  replica  [kernel.kallsyms]                               [k] ep_item_poll.isra.0
+            |          
+             --0.89%--ep_item_poll.isra.0
+                       |          
+                        --0.58%--ep_send_events
+                                  ep_poll
+                                  do_epoll_wait
+                                  __x64_sys_epoll_wait
+                                  do_syscall_64
+                                  entry_SYSCALL_64_after_hwframe
+                                  __res_context_search
+                                  0x55b83bd7f990
+                                  0x7f5ef1036600
+                                  0x6c
+
+     0.91%  replica  [kernel.kallsyms]                               [k] entry_SYSCALL_64_safe_stack
+            |
+            ---entry_SYSCALL_64_safe_stack
+               __res_context_search
+               0x55b83bd7f990
+               0x7f5ef1036600
+               0x6c
+
+     0.69%  replica  [kernel.kallsyms]                               [k] __fget_light
+            |
+            ---__fget_light
+               |          
+                --0.58%--__fdget
+                          |          
+                           --0.57%--do_epoll_wait
+                                     __x64_sys_epoll_wait
+                                     do_syscall_64
+                                     entry_SYSCALL_64_after_hwframe
+                                     __res_context_search
+                                     0x55b83bd7f990
+                                     0x7f5ef1036600
+                                     0x6c
+
+     0.68%  replica  [kernel.kallsyms]                               [k] __put_user_nocheck_4
+            |          
+             --0.54%--__put_user_nocheck_4
+                       ep_poll
+                       do_epoll_wait
+                       __x64_sys_epoll_wait
+                       do_syscall_64
+                       entry_SYSCALL_64_after_hwframe
+                       __res_context_search
+                       0x55b83bd7f990
+                       0x7f5ef1036600
+                       0x6c
+
+     0.63%  replica  libc.so.6                                       [.] __stpncpy_sse2_unaligned
+     0.62%  replica  [kernel.kallsyms]                               [k] __x86_indirect_thunk_rax
+     0.62%  replica  [kernel.kallsyms]                               [k] exit_to_user_mode_prepare
+     0.60%  replica  libc.so.6                                       [.] __res_context_search
+     0.57%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a0b4
+            |
+            ---0x7f5ef10a3420
+               0x55b83bd7f990
+               0x7f5ef1036600
+               0x6c
+
+     0.53%  replica  libevent-2.1.so.7.0.1                           [.] evutil_gettime_monotonic_
+            |          
+             --0.51%--evutil_gettime_monotonic_
+                       |          
+                        --0.50%--0
+
+     0.53%  replica  [kernel.kallsyms]                               [k] eventfd_poll
+     0.47%  replica  [kernel.kallsyms]                               [k] _raw_write_unlock_irq
+     0.45%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a0d2
+     0.45%  replica  libevent-2.1.so.7.0.1                           [.] evmap_io_active_
+     0.33%  replica  [kernel.kallsyms]                               [k] mutex_lock
+     0.29%  replica  [kernel.kallsyms]                               [k] mutex_unlock
+     0.27%  replica  libc.so.6                                       [.] parse_qtd_backslash
+     0.26%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a0ec
+     0.26%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a09c
+     0.25%  replica  [kernel.kallsyms]                               [k] set_normalized_timespec64
+     0.23%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001f9ca
+     0.22%  replica  [kernel.kallsyms]                               [k] __fdget
+     0.21%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a141
+     0.20%  replica  libevent_pthreads-2.1.so.7.0.1                  [.] 0x0000000000001438
+     0.19%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a0b7
+     0.18%  replica  [kernel.kallsyms]                               [k] fpregs_assert_state_consistent
+     0.17%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001de13
+     0.17%  replica  libevent-2.1.so.7.0.1                           [.] event_changelist_remove_all_
+     0.15%  replica  libevent_pthreads-2.1.so.7.0.1                  [.] 0x00000000000012d4
+     0.14%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ddd1
+     0.14%  replica  libevent-2.1.so.7.0.1                           [.] evutil_tv_to_msec_
+     0.14%  replica  [kernel.kallsyms]                               [k] __cond_resched
+     0.11%  replica  replica                                         [.] 0x0000000000011904
+     0.11%  replica  libevent_pthreads-2.1.so.7.0.1                  [.] 0x0000000000001420
+     0.11%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b3d5
+     0.10%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001de09
+     0.10%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ff58
+     0.10%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fa05
+     0.09%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a100
+     0.09%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ddd4
+     0.08%  replica  [vdso]                                          [.] 0x00000000000008ac
+     0.08%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001de4a
+     0.08%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fbae
+     0.07%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ff44
+     0.07%  replica  [vdso]                                          [.] 0x000000000000089a
+     0.07%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b3c9
+     0.07%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ddf3
+     0.07%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fadd
+     0.06%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001dddc
+     0.06%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ff4f
+     0.06%  replica  libevent_pthreads-2.1.so.7.0.1                  [.] 0x0000000000001440
+     0.06%  replica  [vdso]                                          [.] 0x0000000000000808
+     0.06%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fa1d
+     0.06%  replica  [kernel.kallsyms]                               [k] __pm_relax
+     0.06%  replica  [vdso]                                          [.] 0x00000000000008a1
+     0.06%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a10f
+     0.06%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fa2b
+     0.06%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc71
+     0.06%  replica  [kernel.kallsyms]                               [k] _raw_spin_lock
+     0.05%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001f9e0
+     0.05%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fbf3
+     0.05%  replica  libevent_pthreads-2.1.so.7.0.1                  [.] 0x0000000000001454
+     0.05%  replica  [vdso]                                          [.] 0x0000000000000893
+     0.05%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a1b2
+     0.05%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b39b
+     0.05%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a194
+     0.05%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a084
+     0.05%  replica  [vdso]                                          [.] 0x000000000000090a
+     0.05%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b374
+     0.05%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ff36
+     0.05%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a042
+     0.05%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001f9c6
+     0.05%  replica  libevent-2.1.so.7.0.1                           [.] 0x0000000000029fa0
+     0.05%  replica  [vdso]                                          [.] __vdso_clock_gettime
+     0.05%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ff24
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a16c
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a1ab
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a06c
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fad9
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001de35
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001de1d
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a17f
+     0.04%  replica  [vdso]                                          [.] 0x0000000000000919
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc5b
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001de54
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001f9f7
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001de1b
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a0a6
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a133
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001de39
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a160
+     0.04%  replica  libc.so.6                                       [.] __strncat_sse2_unaligned
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a1fd
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001de01
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x0000000000029faa
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a1f4
+     0.04%  replica  libevent_pthreads-2.1.so.7.0.1                  [.] 0x0000000000001264
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000000cae0
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b422
+     0.04%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b3a4
+     0.03%  replica  libevent_pthreads-2.1.so.7.0.1                  [.] 0x000000000000142e
+     0.03%  replica  libevent_pthreads-2.1.so.7.0.1                  [.] 0x0000000000001274
+     0.03%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001de21
+     0.03%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a13f
+     0.03%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc02
+     0.03%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fa46
+     0.03%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a091
+     0.03%  replica  [vdso]                                          [.] 0x00000000000007ff
+     0.03%  replica  [vdso]                                          [.] 0x00000000000007ec
+     0.03%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc8f
+     0.03%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ddd8
+     0.03%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000000c704
+     0.03%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001faa7
+     0.03%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b386
+     0.03%  replica  libevent-2.1.so.7.0.1                           [.] 0x0000000000029fc2
+     0.03%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fa37
+     0.03%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fbb3
+     0.02%  replica  libevent-2.1.so.7.0.1                           [.] 0x0000000000029fb1
+     0.02%  replica  libc.so.6                                       [.] ____wcstof_l_internal
+     0.02%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc88
+     0.02%  replica  [kernel.kallsyms]                               [k] __kmalloc_node_track_caller
+     0.02%  replica  [kernel.kallsyms]                               [k] __copy_skb_header
+     0.02%  replica  bpf_prog_b585edc263635918_FastBroadCast_main    [k] bpf_prog_b585edc263635918_FastBroadCast_main
+     0.02%  replica  [kernel.kallsyms]                               [k] copy_user_enhanced_fast_string
+     0.02%  replica  libc.so.6                                       [.] ____wcstold_l_internal
+     0.02%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fcc8
+     0.02%  replica  [vdso]                                          [.] 0x00000000000008ec
+     0.02%  replica  libc.so.6                                       [.] round_and_return
+     0.02%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fa3c
+     0.02%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b366
+     0.02%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ddf1
+     0.02%  replica  [kernel.kallsyms]                               [k] udp_recvmsg
+     0.02%  replica  [kernel.kallsyms]                               [k] mlx5e_txwqe_complete
+     0.02%  replica  [kernel.kallsyms]                               [k] get_signal
+     0.02%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fae4
+     0.02%  replica  libevent_pthreads-2.1.so.7.0.1                  [.] 0x0000000000001444
+     0.01%  replica  [kernel.kallsyms]                               [k] aa_sk_perm
+     0.01%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b3b6
+     0.01%  replica  [kernel.kallsyms]                               [k] __ip_append_data
+     0.01%  replica  libevent-2.1.so.7.0.1                           [.] 0x0000000000029fd3
+     0.01%  replica  [kernel.kallsyms]                               [k] __skb_recv_udp
+     0.01%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b3c0
+     0.01%  replica  [kernel.kallsyms]                               [k] mlx5e_xmit
+     0.01%  replica  [vdso]                                          [.] 0x00000000000007e4
+     0.01%  replica  [kernel.kallsyms]                               [k] io_issue_sqe
+     0.01%  replica  [kernel.kallsyms]                               [k] ___slab_alloc
+     0.01%  replica  [kernel.kallsyms]                               [k] io_sendmsg
+     0.01%  replica  [kernel.kallsyms]                               [k] kmem_cache_alloc_node
+     0.01%  replica  replica                                         [.] UDPTransport::process_cqe_recv
+     0.01%  replica  [kernel.kallsyms]                               [k] mlx5e_sq_xmit_wqe
+     0.01%  replica  [kernel.kallsyms]                               [k] check_heap_object
+     0.01%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001faae
+     0.01%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fa4a
+     0.01%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001faa2
+     0.01%  replica  [vdso]                                          [.] 0x00000000000008af
+     0.01%  replica  [kernel.kallsyms]                               [k] io_submit_sqes
+     0.01%  replica  [kernel.kallsyms]                               [k] fib_table_lookup
+     0.01%  replica  [kernel.kallsyms]                               [k] dequeue_skb
+     0.01%  replica  [kernel.kallsyms]                               [k] __build_skb_around
+     0.01%  replica  replica                                         [.] UDPTransport::sendmsg_iouring
+     0.01%  replica  [kernel.kallsyms]                               [k] udp_rmem_release
+     0.01%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a097
+     0.01%  replica  [kernel.kallsyms]                               [k] __ksize
+     0.01%  replica  [kernel.kallsyms]                               [k] mlx5e_txqsq_get_next_pi
+     0.01%  replica  [kernel.kallsyms]                               [k] __alloc_skb
+     0.01%  replica  [kernel.kallsyms]                               [k] __io_commit_cqring_flush
+     0.01%  replica  libstdc++.so.6.0.30                             [.] __dynamic_cast
+     0.01%  replica  [kernel.kallsyms]                               [k] __ip_dev_find
+     0.01%  replica  [kernel.kallsyms]                               [k] memset_erms
+     0.01%  replica  [kernel.kallsyms]                               [k] sock_alloc_send_pskb
+     0.01%  replica  libstdc++.so.6.0.30                             [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_create
+     0.01%  replica  [kernel.kallsyms]                               [k] tctx_task_work
+     0.01%  replica  replica                                         [.] specpaxos::vr::VRReplica::ReceiveMessage
+     0.01%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fbc6
+     0.01%  replica  [vdso]                                          [.] 0x000000000000089b
+     0.01%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fac4
+     0.01%  replica  [kernel.kallsyms]                               [k] io_buffer_select
+     0.01%  replica  [kernel.kallsyms]                               [k] __rcu_read_unlock
+     0.01%  replica  [kernel.kallsyms]                               [k] pskb_expand_head
+     0.01%  replica  [kernel.kallsyms]                               [k] task_work_run
+     0.01%  replica  libstdc++.so.6.0.30                             [.] operator new
+     0.01%  replica  libprotobuf.so.23.0.4                           [.] google::protobuf::internal::EpsCopyInputStream::DoneFallback
+     0.01%  replica  [kernel.kallsyms]                               [k] __rcu_read_lock
+     0.01%  replica  libevent-2.1.so.7.0.1                           [.] event_del_nolock_
+     0.01%  replica  [kernel.kallsyms]                               [k] skb_set_owner_w
+     0.01%  replica  [kernel.kallsyms]                               [k] cls_bpf_classify
+     0.01%  replica  [kernel.kallsyms]                               [k] check_stack_object
+     0.01%  replica  [kernel.kallsyms]                               [k] __virt_addr_valid
+     0.01%  replica  [kernel.kallsyms]                               [k] __update_load_avg_cfs_rq
+     0.01%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc60
+     0.01%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc80
+     0.01%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc63
+     0.01%  replica  replica                                         [.] UDPTransport::Timer
+     0.01%  replica  [kernel.kallsyms]                               [k] __mkroute_output
+     0.01%  replica  [kernel.kallsyms]                               [k] __do_sys_io_uring_enter
+     0.01%  replica  [kernel.kallsyms]                               [k] udp_send_skb
+     0.01%  replica  [kernel.kallsyms]                               [k] mlx5e_tx_check_stop
+     0.01%  replica  [kernel.kallsyms]                               [k] ____sys_sendmsg
+     0.01%  replica  replica                                         [.] specpaxos::vr::VRReplica::CommitUpTo
+     0.01%  replica  [kernel.kallsyms]                               [k] security_socket_recvmsg
+     0.01%  replica  [kernel.kallsyms]                               [k] udp_sendmsg
+     0.01%  replica  [kernel.kallsyms]                               [k] __check_object_size.part.0
+     0.01%  replica  replica                                         [.] TransportCommon<UDPTransportAddress>::SendMessageToAll
+     0.01%  replica  [kernel.kallsyms]                               [k] ip_setup_cork
+     0.01%  replica  libprotobuf.so.23.0.4                           [.] google::protobuf::internal::AssignDescriptors
+     0.01%  replica  [kernel.kallsyms]                               [k] fib_lookup_good_nhc
+     0.01%  replica  [kernel.kallsyms]                               [k] mlx5e_sq_calc_wqe_attr.isra.0
+     0.01%  replica  [kernel.kallsyms]                               [k] __raw_spin_lock_irqsave
+     0.01%  replica  replica                                         [.] DecodePacket
+     0.01%  replica  [kernel.kallsyms]                               [k] io_recvmsg
+     0.01%  replica  replica                                         [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_construct<char const*>
+     0.01%  replica  [kernel.kallsyms]                               [k] handle_tw_list
+     0.01%  replica  libstdc++.so.6.0.30                             [.] 0x000000000009f0d4
+     0.01%  replica  [kernel.kallsyms]                               [k] __tcf_classify
+     0.01%  replica  [kernel.kallsyms]                               [k] clear_page_erms
+     0.01%  replica  [kernel.kallsyms]                               [k] neigh_resolve_output
+     0.00%  replica  [vdso]                                          [.] 0x00000000000008a3
+     0.00%  replica  [kernel.kallsyms]                               [k] native_write_msr
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fbfb
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b3d7
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a08d
+     0.00%  replica  libevent_pthreads-2.1.so.7.0.1                  [.] 0x0000000000001427
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x0000000000029fc9
+     0.00%  replica  [kernel.kallsyms]                               [k] native_irq_return_iret
+     0.00%  replica  [kernel.kallsyms]                               [k] inet_recvmsg
+     0.00%  replica  [kernel.kallsyms]                               [k] ip_make_skb
+     0.00%  replica  libstdc++.so.6.0.30                             [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_replace_aux
+     0.00%  replica  [kernel.kallsyms]                               [k] mlx5e_txwqe_build_eseg
+     0.00%  replica  [kernel.kallsyms]                               [k] eventfd_signal
+     0.00%  replica  [kernel.kallsyms]                               [k] ip_route_output_key_hash_rcu
+     0.00%  replica  replica                                         [.] specpaxos::vr::VRReplica::HandleRequest
+     0.00%  replica  ld-linux-x86-64.so.2                            [.] init_cpu_features.constprop.0
+     0.00%  replica  [kernel.kallsyms]                               [k] __copy_msghdr
+     0.00%  replica  [kernel.kallsyms]                               [k] xfrm_lookup_with_ifid
+     0.00%  replica  replica                                         [.] UDPTransport::recycle_buffer
+     0.00%  replica  [kernel.kallsyms]                               [k] __local_bh_enable_ip
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] google::protobuf::Message::GetTypeName[abi:cxx11]
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000000cae4
+     0.00%  replica  [kernel.kallsyms]                               [k] skb_ensure_writable
+     0.00%  replica  libstdc++.so.6.0.30                             [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_replace
+     0.00%  replica  [kernel.kallsyms]                               [k] ip_route_output_flow
+     0.00%  replica  [kernel.kallsyms]                               [k] ipv4_mtu
+     0.00%  replica  [kernel.kallsyms]                               [k] copy_msghdr_from_user
+     0.00%  replica  [kernel.kallsyms]                               [k] __qdisc_run
+     0.00%  replica  [kernel.kallsyms]                               [k] _copy_from_iter
+     0.00%  replica  [kernel.kallsyms]                               [k] ip_finish_output
+     0.00%  replica  [kernel.kallsyms]                               [k] __ip_local_out
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fcc1
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc84
+     0.00%  replica  [kernel.kallsyms]                               [k] qdisc_pkt_len_init
+     0.00%  replica  replica                                         [.] google::protobuf::internal::ArenaStringPtr::CreateInstance
+     0.00%  replica  [kernel.kallsyms]                               [k] ep_poll_callback
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc0a
+     0.00%  replica  [kernel.kallsyms]                               [k] mlx5e_txwqe_build_dsegs
+     0.00%  replica  [kernel.kallsyms]                               [k] dma_direct_map_page
+     0.00%  replica  [kernel.kallsyms]                               [k] neigh_hh_output
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ff55
+     0.00%  replica  replica                                         [.] Timeout::Reset
+     0.00%  replica  [kernel.kallsyms]                               [k] native_read_msr
+     0.00%  replica  [kernel.kallsyms]                               [k] irqentry_exit_to_user_mode
+     0.00%  replica  [kernel.kallsyms]                               [k] perf_event_task_tick
+     0.00%  replica  [kernel.kallsyms]                               [k] native_apic_msr_eoi_write
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b3d0
+     0.00%  replica  [kernel.kallsyms]                               [k] native_sched_clock
+     0.00%  replica  [vdso]                                          [.] 0x0000000000000922
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a086
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc51
+     0.00%  replica  [vdso]                                          [.] 0x000000000000091d
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc89
+     0.00%  replica  [kernel.kallsyms]                               [k] cpuacct_charge
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ff19
+     0.00%  replica  [kernel.kallsyms]                               [k] hrtimer_forward
+     0.00%  replica  replica                                         [.] std::_Rb_tree<int, std::pair<int const, UDPTransport::UDPTransportTimerInfo*>, std::_Select1st<std::pair<int const, UDPTransport::UDPTransportTimerInfo*> >, std::less<int>, std::allocator<std::pair<int const, UDPTransport::UDPTransportTimerInfo*> > >::erase
+     0.00%  replica  [kernel.kallsyms]                               [k] kmem_cache_alloc
+     0.00%  replica  replica                                         [.] specpaxos::vr::VRReplica::HandlePrepareOK
+     0.00%  replica  replica                                         [.] specpaxos::vr::proto::PrepareMessage::ByteSizeLong
+     0.00%  replica  [kernel.kallsyms]                               [k] validate_xmit_skb_list
+     0.00%  replica  [kernel.kallsyms]                               [k] skb_put
+     0.00%  replica  replica                                         [.] specpaxos::vr::proto::RequestMessage::_InternalParse
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b9c0
+     0.00%  replica  [kernel.kallsyms]                               [k] io_sendmsg_prep
+     0.00%  replica  replica                                         [.] specpaxos::vr::proto::PrepareMessage::_InternalSerialize
+     0.00%  replica  replica                                         [.] google::protobuf::RepeatedPtrField<specpaxos::Request>::~RepeatedPtrField
+     0.00%  replica  [kernel.kallsyms]                               [k] io_poll_check_events
+     0.00%  replica  [kernel.kallsyms]                               [k] sock_sendmsg
+     0.00%  replica  [kernel.kallsyms]                               [k] __io_submit_flush_completions
+     0.00%  replica  [kernel.kallsyms]                               [k] kmalloc_reserve
+     0.00%  replica  [kernel.kallsyms]                               [k] security_socket_sendmsg
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] 0x000000000008ce64
+     0.00%  replica  [kernel.kallsyms]                               [k] mlx5e_sq_xmit_prepare
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc8b
+     0.00%  replica  [kernel.kallsyms]                               [k] inet_sendmsg
+     0.00%  replica  [kernel.kallsyms]                               [k] do_user_addr_fault
+     0.00%  replica  [kernel.kallsyms]                               [k] __skb_try_recv_from_queue
+     0.00%  replica  [kernel.kallsyms]                               [k] nf_hook_slow
+     0.00%  replica  [kernel.kallsyms]                               [k] skb_consume_udp
+     0.00%  replica  [kernel.kallsyms]                               [k] handle_mm_fault
+     0.00%  replica  [kernel.kallsyms]                               [k] mlx5e_features_check
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] google::protobuf::MessageLite::AppendPartialToString
+     0.00%  replica  [kernel.kallsyms]                               [k] cmpxchg_double_slab.constprop.0.isra.0
+     0.00%  replica  [kernel.kallsyms]                               [k] is_vmalloc_addr
+     0.00%  replica  [kernel.kallsyms]                               [k] copy_user_short_string
+     0.00%  replica  [kernel.kallsyms]                               [k] __dev_queue_xmit
+     0.00%  replica  [kernel.kallsyms]                               [k] memcg_slab_post_alloc_hook
+     0.00%  replica  bpf_prog_453ceb4f9fbbb723_compute_message_type  [k] bpf_prog_453ceb4f9fbbb723_compute_message_type
+     0.00%  replica  replica                                         [.] std::_Rb_tree<unsigned long, std::pair<unsigned long const, std::unique_ptr<TransportAddress, std::default_delete<TransportAddress> > >, std::_Select1st<std::pair<unsigned long const, std::unique_ptr<TransportAddress, std::default_delete<TransportAddress> > > >, std::less<unsigned long>, std::allocator<std::pair<unsigned long const, std::unique_ptr<TransportAddress, std::default_delete<TransportAddress> > > > >::_M_erase
+     0.00%  replica  [kernel.kallsyms]                               [k] move_addr_to_kernel
+     0.00%  replica  [kernel.kallsyms]                               [k] skb_release_data
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] event_add_nolock_
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001de65
+     0.00%  replica  [kernel.kallsyms]                               [k] apparmor_socket_sendmsg
+     0.00%  replica  [kernel.kallsyms]                               [k] dma_map_page_attrs
+     0.00%  replica  [kernel.kallsyms]                               [k] dev_hard_start_xmit
+     0.00%  replica  [kernel.kallsyms]                               [k] __import_iovec
+     0.00%  replica  replica                                         [.] 0x00000000000113a4
+     0.00%  replica  [kernel.kallsyms]                               [k] __dev_xmit_skb
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] 0x0000000000225028
+     0.00%  replica  replica                                         [.] 0x0000000000011854
+     0.00%  replica  replica                                         [.] specpaxos::vr::VRReplica::CloseBatch
+     0.00%  replica  [kernel.kallsyms]                               [k] tcf_classify
+     0.00%  replica  replica                                         [.] specpaxos::Request::_InternalParse
+     0.00%  replica  [kernel.kallsyms]                               [k] try_charge_memcg
+     0.00%  replica  [kernel.kallsyms]                               [k] __update_load_avg_se
+     0.00%  replica  [kernel.kallsyms]                               [k] sugov_iowait_boost
+     0.00%  replica  [kernel.kallsyms]                               [k] acct_account_cputime
+     0.00%  replica  [kernel.kallsyms]                               [k] update_load_avg
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b3ab
+     0.00%  replica  [kernel.kallsyms]                               [k] cgroup_rstat_updated
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a094
+     0.00%  replica  [kernel.kallsyms]                               [k] tick_do_update_jiffies64
+     0.00%  replica  [kernel.kallsyms]                               [k] update_fast_timekeeper
+     0.00%  replica  [kernel.kallsyms]                               [k] hrtimer_interrupt
+     0.00%  replica  [kernel.kallsyms]                               [k] error_entry
+     0.00%  replica  [kernel.kallsyms]                               [k] timekeeping_advance
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ddd5
+     0.00%  replica  [kernel.kallsyms]                               [k] update_curr
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ff3d
+     0.00%  replica  [kernel.kallsyms]                               [k] __hrtimer_next_event_base
+     0.00%  replica  [kernel.kallsyms]                               [k] sync_regs
+     0.00%  replica  [kernel.kallsyms]                               [k] _raw_spin_unlock_irqrestore
+     0.00%  replica  [vdso]                                          [.] 0x000000000000089f
+     0.00%  replica  [kernel.kallsyms]                               [k] update_process_times
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001de47
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b3cd
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ff47
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fad2
+     0.00%  replica  [kernel.kallsyms]                               [k] scheduler_tick
+     0.00%  replica  [kernel.kallsyms]                               [k] send_call_function_single_ipi
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ddff
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ff4c
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001ff2d
+     0.00%  replica  [kernel.kallsyms]                               [k] update_group_capacity
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000002a071
+     0.00%  replica  [kernel.kallsyms]                               [k] __ip_finish_output
+     0.00%  replica  replica                                         [.] 0x00000000000116a0
+     0.00%  replica  replica                                         [.] specpaxos::vr::proto::PrepareMessage::IsInitialized
+     0.00%  replica  bpf_prog_23b2bd61a46f27a2_compute_ip_checksum   [k] bpf_prog_23b2bd61a46f27a2_compute_ip_checksum
+     0.00%  replica  libstdc++.so.6.0.30                             [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_assign
+     0.00%  replica  replica                                         [.] 0x00000000000115e0
+     0.00%  replica  [kernel.kallsyms]                               [k] __ip_make_skb
+     0.00%  replica  [kernel.kallsyms]                               [k] page_frag_free
+     0.00%  replica  replica                                         [.] Latency_EndRecType
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] google::protobuf::MessageLite::AppendToString
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] google::protobuf::internal::RepeatedPtrFieldBase::Reserve
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] google::protobuf::internal::RepeatedPtrFieldBase::InternalExtend
+     0.00%  replica  [kernel.kallsyms]                               [k] kmem_cache_free
+     0.00%  replica  [kernel.kallsyms]                               [k] __raw_read_lock_irqsave
+     0.00%  replica  [kernel.kallsyms]                               [k] get_page_from_freelist
+     0.00%  replica  [vdso]                                          [.] 0x000000000000082f
+     0.00%  replica  replica                                         [.] Latency_Pause
+     0.00%  replica  [kernel.kallsyms]                               [k] udp4_hwcsum
+     0.00%  replica  replica                                         [.] google::protobuf::internal::RepeatedPtrFieldBase::MergeFromInnerLoop<google::protobuf::RepeatedPtrField<specpaxos::Request>::TypeHandler>
+     0.00%  replica  [kernel.kallsyms]                               [k] kfree
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] event_new
+     0.00%  replica  libstdc++.so.6.0.30                             [.] std::_Rb_tree_insert_and_rebalance
+     0.00%  replica  replica                                         [.] UDPTransport::assemble_frag
+     0.00%  replica  [kernel.kallsyms]                               [k] _raw_spin_unlock
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000000ca10
+     0.00%  replica  [kernel.kallsyms]                               [k] security_sk_classify_flow
+     0.00%  replica  [kernel.kallsyms]                               [k] __skb_clone
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] event_assign
+     0.00%  replica  replica                                         [.] 0x0000000000011060
+     0.00%  replica  [kernel.kallsyms]                               [k] rmqueue_pcplist.constprop.0
+     0.00%  replica  libstdc++.so.6.0.30                             [.] 0x000000000009fb34
+     0.00%  replica  [kernel.kallsyms]                               [k] kthread_blkcg
+     0.00%  replica  replica                                         [.] std::_Function_handler<void (), Timeout::Reset()::{lambda()#1}>::_M_manager
+     0.00%  replica  [vdso]                                          [.] 0x00000000000008a9
+     0.00%  replica  [kernel.kallsyms]                               [k] __sys_sendmsg_sock
+     0.00%  replica  liburing.so.2.9                                 [.] io_uring_submit
+     0.00%  replica  replica                                         [.] specpaxos::vr::proto::PrepareMessage::MergeFrom
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b8e2
+     0.00%  replica  replica                                         [.] std::_Rb_tree<int, std::pair<int const, UDPTransport::UDPTransportTimerInfo*>, std::_Select1st<std::pair<int const, UDPTransport::UDPTransportTimerInfo*> >, std::less<int>, std::allocator<std::pair<int const, UDPTransport::UDPTransportTimerInfo*> > >::_M_get_insert_hint_unique_pos
+     0.00%  replica  [kernel.kallsyms]                               [k] netif_skb_features
+     0.00%  replica  [kernel.kallsyms]                               [k] kmalloc_slab
+     0.00%  replica  [kernel.kallsyms]                               [k] memcpy_erms
+     0.00%  replica  [vdso]                                          [.] 0x00000000000006d5
+     0.00%  replica  [kernel.kallsyms]                               [k] eth_header
+     0.00%  replica  [kernel.kallsyms]                               [k] sch_direct_xmit
+     0.00%  replica  [kernel.kallsyms]                               [k] fib_select_path
+     0.00%  replica  replica                                         [.] specpaxos::vr::proto::RequestMessage::GetMetadata
+     0.00%  replica  libc.so.6                                       [.] 0x00000000001a88a0
+     0.00%  replica  replica                                         [.] UDPTransport::OnCompletion
+     0.00%  replica  replica                                         [.] UDPTransport::CancelTimer
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc57
+     0.00%  replica  [kernel.kallsyms]                               [k] ctx_flush_and_put
+     0.00%  replica  replica                                         [.] UDPTransportAddress::clone
+     0.00%  replica  replica                                         [.] specpaxos::Request::Clear
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] 0x0000000000225033
+     0.00%  replica  replica                                         [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_construct<char*>
+     0.00%  replica  libstdc++.so.6.0.30                             [.] __cxxabiv1::__si_class_type_info::__do_dyncast
+     0.00%  replica  [kernel.kallsyms]                               [k] charge_memcg
+     0.00%  replica  [vdso]                                          [.] 0x00000000000006e9
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] 0x0000000000224fba
+     0.00%  replica  [kernel.kallsyms]                               [k] __io_fill_cqe_req.isra.0
+     0.00%  replica  [kernel.kallsyms]                               [k] ksize
+     0.00%  replica  [kernel.kallsyms]                               [k] siphash_3u32
+     0.00%  replica  [kernel.kallsyms]                               [k] sock_from_file
+     0.00%  replica  [kernel.kallsyms]                               [k] sched_clock
+     0.00%  replica  [kernel.kallsyms]                               [k] io_kbuf_recycle
+     0.00%  replica  [kernel.kallsyms]                               [k] __ip_select_ident
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] google::protobuf::MessageLite::ParseFromString
+     0.00%  replica  [kernel.kallsyms]                               [k] free_unref_page_list
+     0.00%  replica  [kernel.kallsyms]                               [k] __wake_up_common
+     0.00%  replica  [kernel.kallsyms]                               [k] skb_clone
+     0.00%  replica  [kernel.kallsyms]                               [k] io_setup_async_msg
+     0.00%  replica  replica                                         [.] specpaxos::vr::VRReplica::UpdateClientTable
+     0.00%  replica  [kernel.kallsyms]                               [k] up_read
+     0.00%  replica  libc.so.6                                       [.] 0x00000000001a8890
+     0.00%  replica  [kernel.kallsyms]                               [k] __count_memcg_events
+     0.00%  replica  [kernel.kallsyms]                               [k] _raw_read_unlock_irqrestore
+     0.00%  replica  [kernel.kallsyms]                               [k] bpf_skb_pull_data
+     0.00%  replica  [kernel.kallsyms]                               [k] validate_xmit_skb
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] google::protobuf::internal::VarintParseSlow64
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fc6c
+     0.00%  replica  [kernel.kallsyms]                               [k] ip_finish_output2
+     0.00%  replica  replica                                         [.] specpaxos::Log::Append
+     0.00%  replica  [kernel.kallsyms]                               [k] rmqueue_bulk
+     0.00%  replica  libc.so.6                                       [.] 0x00000000001a7c4d
+     0.00%  replica  [kernel.kallsyms]                               [k] import_iovec
+     0.00%  replica  replica                                         [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_construct<char*>
+     0.00%  replica  [kernel.kallsyms]                               [k] __consume_stateless_skb
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] 0x000000000008ce60
+     0.00%  replica  replica                                         [.] specpaxos::vr::proto::CommitMessage::ByteSizeLong
+     0.00%  replica  [kernel.kallsyms]                               [k] exit_to_user_mode_loop
+     0.00%  replica  [kernel.kallsyms]                               [k] iov_iter_init
+     0.00%  replica  [kernel.kallsyms]                               [k] io_poll_issue
+     0.00%  replica  libevent_pthreads-2.1.so.7.0.1                  [.] 0x0000000000001447
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001fabd
+     0.00%  replica  replica                                         [.] specpaxos::Request::~Request
+     0.00%  replica  [kernel.kallsyms]                               [k] skb_push
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] 0x0000000000224f94
+     0.00%  replica  libc.so.6                                       [.] __GI___strcasecmp_l_sse2
+     0.00%  replica  libevent-2.1.so.7.0.1                           [.] 0x000000000001b852
+     0.00%  replica  [kernel.kallsyms]                               [k] __x64_sys_io_uring_enter
+     0.00%  replica  [vdso]                                          [.] 0x0000000000000823
+     0.00%  replica  ld-linux-x86-64.so.2                            [.] strncmp
+     0.00%  replica  ld-linux-x86-64.so.2                            [.] add_to_global_resize
+     0.00%  taskset  [kernel.kallsyms]                               [k] pfn_pte
+     0.00%  replica  ld-linux-x86-64.so.2                            [.] _dl_strtoul
+     0.00%  replica  [kernel.kallsyms]                               [k] vmalloc_to_page
+     0.00%  replica  replica                                         [.] UDPTransport::setup_buffer_pool
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] google::protobuf::internal::InitSCCImpl
+     0.00%  taskset  [kernel.kallsyms]                               [k] entry_SYSRETQ_unsafe_stack
+     0.00%  replica  libprotobuf.so.23.0.4                           [.] google::protobuf::UninterpretedOption_NamePart::UninterpretedOption_NamePart
+     0.00%  replica  ld-linux-x86-64.so.2                            [.] _dl_profile_fixup
+     0.00%  replica  [kernel.kallsyms]                               [k] copy_page
+     0.00%  replica  [kernel.kallsyms]                               [k] native_flush_tlb_one_user
+     0.00%  taskset  [kernel.kallsyms]                               [k] copy_page
+     0.00%  replica  [kernel.kallsyms]                               [k] perf_iterate_sb
+     0.00%  replica  ld-linux-x86-64.so.2                            [.] memchr
+     0.00%  replica  ld-linux-x86-64.so.2                            [.] do_lookup_x
+     0.00%  replica  [kernel.kallsyms]                               [k] __split_vma
+     0.00%  replica  ld-linux-x86-64.so.2                            [.] __minimal_malloc
+     0.00%  replica  ld-linux-x86-64.so.2                            [.] __minimal_free
+     0.00%  replica  [kernel.kallsyms]                               [k] strlen
+     0.00%  replica  ld-linux-x86-64.so.2                            [.] memcmp
+     0.00%  replica  [kernel.kallsyms]                               [k] __rb_insert_augmented
+     0.00%  taskset  [kernel.kallsyms]                               [k] zap_pte_range
+     0.00%  taskset  [kernel.kallsyms]                               [k] workingset_age_nonresident
+     0.00%  taskset  [kernel.kallsyms]                               [k] get_random_u64
+     0.00%  taskset  [kernel.kallsyms]                               [k] preempt_schedule_common
+     0.00%  taskset  [kernel.kallsyms]                               [k] ghes_in_nmi_queue_one_entry.constprop.0
+     0.00%  perf-ex  [kernel.kallsyms]                               [k] pv_native_write_cr2
+     0.00%  taskset  [kernel.kallsyms]                               [k] fill_pud
+     0.00%  perf-ex  [kernel.kallsyms]                               [k] native_sched_clock
+     0.00%  taskset  [kernel.kallsyms]                               [k] native_write_msr
+     0.00%  perf-ex  [kernel.kallsyms]                               [k] native_apic_msr_write
+     0.00%  taskset  [kernel.kallsyms]                               [k] native_apic_msr_write
+     0.00%  perf-ex  [kernel.kallsyms]                               [k] __x86_indirect_thunk_rax
+     0.00%  perf-ex  [kernel.kallsyms]                               [k] _raw_spin_unlock
+     0.00%  perf-ex  [kernel.kallsyms]                               [k] intel_bts_enable_local
+     0.00%  taskset  [kernel.kallsyms]                               [k] intel_bts_enable_local
+     0.00%  taskset  [kernel.kallsyms]                               [k] x86_pmu_enable
+
+
+#
+# (Tip: To set sample time separation other than 100ms with --sort time use --time-quantum)
+#
