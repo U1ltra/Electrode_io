@@ -126,6 +126,32 @@ cd ~/Electrode_io/
 ./bench/client -c config.txt -m vr -n 10000 # -n is the number of requests
 ```
 
+## Profiling
+Install perf
+```bash
+sudo apt update
+sudo apt install google-perftools libgoogle-perftools-dev
+
+sudo apt-get install linux-tools-common
+sudo apt-get install libdw-dev libunwind-dev libaudit-dev libslang2-dev binutils-dev liblzma-dev
+
+cd ~
+wget https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.0.tar.xz
+tar xf linux-6.0.tar.xz
+cd linux-6.0/tools/perf
+
+make
+sudo make install
+
+sudo cp ./perf /usr/local/bin/
+```
+
+Generate report
+```bash
+sudo perf record -F 99 -g -o my_profile.data taskset -c 1 ./bench/replica -c config.txt -m vr -i 0
+sudo perf report --stdio --no-children -i my_profile.data > profile_report.txt
+```
+
 ## Known Issue
 Error `20241101-093256-3254 18489 * ResendPrepare   (replica.cc:480):   [0] Resending prepare`
 - Restart the experiment from `xdp-handler`. Kill the previous xdp-handler process in the background using `kill -2 $(cat pid.file)`
